@@ -625,3 +625,148 @@ public class UserDao {
     }
 ```
 <h4>3.6.2 queryForInt()</h4>
+* getCount() 메소드에 jdbcTemplate 를 적용 시, 결과 같을 가져오는 콜백 이 있다.
+* ResultSetExtractor 라고 하며 ResultSet 을 전달받는 콜백이다. 해당 콜백을 구현하면 아래와 같다.
+
+```java
+public int getCount() throws SQLException {
+        return this.jdbcTemplate.query(new PreparedStatementCreator() {
+            @Override
+            public PreparedStatement createPreparedStatement(Connection connection) throws SQLException {
+                return connection.prepareStatement("select count(*) from users");
+            }
+        }, new ResultSetExtractor<Integer>() {
+            @Override
+            public Integer extractData(ResultSet resultSet) throws SQLException, DataAccessException {
+                resultSet.next();
+                return resultSet.getInt(1);
+            }
+        });
+    }
+}
+```
+* queryForObject() 메소드를 사용하면 아래와 같이 더 깔끔하게 코드가 가능하다.
+```java
+    public int getCount() throws SQLException {
+        return this.jdbcTemplate.queryForObject("select count(*) from users", Integer.class);
+    }
+```
+
+<h4>3.6.3 queryForObject()</h4>
+* Integer 값 외에도 queryForObject 를 통해 다양한 타입의 결과 객체를 가져올 수 있다.
+* queryForObject 를 사용해서 get() 메소드를 수정하면 아래와 같다.
+```java
+public User get(String id) throws SQLException {
+        return this.jdbcTemplate.queryForObject("select * from users where id = ?", new RowMapper<User>() {
+            @Override
+            public User mapRow(ResultSet resultSet, int i) throws SQLException {
+                User user = new User();
+                user.setId(resultSet.getString("id"));
+                user.setName(resultSet.getString("name"));
+                user.setPassword(resultSet.getString("password"));
+                return user;
+            }
+        }, new Object[]{id});
+    }
+```
+
+<h4>3.6.4 query()</h4>
+* rowMapper 를 좀더 사용해볼 목적으로, 사용자 리스트 전체를 가져오는 기능을 만들어본다.
+* 우선 테스트부터 생성해보면 아래와 같다.
+
+```java
+    @Test
+    public void getAll() {
+        dao.deleteAll();
+
+        dao.add(user1); // Id:gyumee
+        List<User> users1 = dao.getAll();
+        assertThat(users1.size(), is(1));
+        checkSameUser(user1, users1.get(0));
+
+        dao.add(user2); // Id: leegw700
+        List<User> users2 = dao.getAll();
+        assertThat(users2.size(), is(2));
+        checkSameUser(user1, users2.get(0));
+        checkSameUser(user2, users2.get(1));
+
+        dao.add(user3); // Id: bumjin
+        List<User> users3 = dao.getAll();
+        assertThat(users3.size(), is(3));
+        checkSameUser(user3, users3.get(0));
+        checkSameUser(user1, users3.get(1));
+        checkSameUser(user2, users3.get(2));
+    }
+
+    private void checkSameUser(User user1, User user2) {
+        assertThat(user1.getId(), is(user2.getId()));
+        assertThat(user1.getName(), is(user2.getName()));
+        assertThat(user1.getPassword(), is(user2.getPassword()));
+    }
+```
+* 테스트를 성공하도록 getAll() 메소드를 구현한다, 여러개의 결과를 가져올 떄는 query() 메소드를 사용한다.
+```java
+public List<User> getAll() {
+        return this.jdbcTemplate.query("select * from users order by id", new RowMapper<User>() {
+            @Override
+            public User mapRow(ResultSet resultSet, int i) throws SQLException {
+                User user = new User();
+                user.setId(resultSet.getString("id"));
+                user.setName(resultSet.getString("name"));
+                user.setPassword(resultSet.getString("password"));
+                return user;
+            }
+        });
+    }
+```
+
+* 테스트는 성공하였으나, 테스트 중 쿼리 결과가 없을 경우의 동작은 테스트 하지 않았다.
+* query() 메소드를 쿼리 결과가 없으면 size 0 인 List 를 리턴한다.
+* 이 부분을 이용해서 데이터가 없는 경우에 대한 검증 코드를 추가한 테스트는 아래와 같다.
+```java
+@Test
+    public void getAll() {
+        dao.deleteAll();
+
+        List<User> users0 = dao.getAll();
+        assertThat(users0.size(), is(0));
+        ...
+```
+
+<h4>3.6.5 재사용 가능한 콜백의 분리</h4>
+* 현재 코드에서 재사용 가능한 부분을 찾아보면, getAll() 과 get() 의 RowMapper 가 중복되어 나타난다.
+* 이 부분을 독립시켜 나중에 수정사항이 생겼을 때 한곳에서 처리할 수 있도록 하면 아래와 같다.
+```java
+public class UserDao {
+    private RowMapper<User> userMapper = new RowMapper<User>() {
+        @Override
+        public User mapRow(ResultSet resultSet, int i) throws SQLException {
+            User user = new User();
+            user.setId(resultSet.getString("id"));
+            user.setName(resultSet.getString("name"));
+            user.setPassword(resultSet.getString("password"));
+            return user;
+        }
+    };
+    ...
+    public User get(String id) {
+        return this.jdbcTemplate.queryForObject("select * from users where id = ?", this.userMapper, new Object[]{id});
+    }
+    ...
+    public List<User> getAll() {
+        return this.jdbcTemplate.query("select * from users order by id", this.userMapper);
+    }
+
+}
+```
+* 이렇게 모든 메소드를 수정한 UserDao 는 만약 테이블의 수정사항이 있을 때 모두 한 클래스에서 처리할 수 있다(응집도가 높음)
+* DB를 무엇을 쓸지에 대해서는 JdbcTemplate 에 맡기고 신경쓰지 않는다.
+* userMapper 를 독립된 빈으로 만들거나, sql 문장을 외부 리소스에서 불러오도록 하는 개선사항이 있으나 아직은 개선하지 않는다.
+
+<h3>3.7 정리</h3>
+* 예외 발생 가능성 및 공유 리소스의 반환이 필요한 코드는 try/catch/finally 블록으로 관리한다.
+* 특정 동작이 고정이고, 일부만 바뀐다면 전략 패턴을 사용해서 처리하면 좋다.
+* 단일 전략 메소드를 갖는 전략 패턴이면서, 익명 내부 클래스를 사용해서 매번 전략을 만들고, 컨텍스트 호출과 동시에 전략 DI를 수행하는 방식을
+템플릿/콜백 패턴이라고 한다.
+  
+* 스프링에서는 해당 패턴을 JdbcTemplate 클래스로 제공하고 있다.
