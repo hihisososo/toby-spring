@@ -2,12 +2,15 @@ package springbook.user.dao;
 
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.SimpleDriverDataSource;
+import org.springframework.transaction.PlatformTransactionManager;
+import springbook.user.service.UserService;
 
 import javax.sql.DataSource;
 
 @SpringBootConfiguration
-public class TestDaoFactory {
+public class TestBeanFactory {
     @Bean
     public UserDao userDao() {
         UserDaoJdbc userDao = new UserDaoJdbc();
@@ -24,5 +27,20 @@ public class TestDaoFactory {
         dataSource.setUsername("sa");
         dataSource.setPassword("");
         return dataSource;
+    }
+
+    @Bean
+    public UserService userService(){
+        UserService service = new UserService();
+        service.setUserDao(userDao());
+        service.setDataSource(dataSource());
+        service.setTransactionManager(transactionManager());
+
+        return service;
+    }
+
+    @Bean
+    public PlatformTransactionManager transactionManager(){
+        return new DataSourceTransactionManager(dataSource());
     }
 }
