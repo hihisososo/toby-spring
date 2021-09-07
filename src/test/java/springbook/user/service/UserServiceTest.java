@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.mail.MailSender;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
@@ -39,6 +40,9 @@ public class UserServiceTest {
 
     @Autowired
     PlatformTransactionManager transactionManager;
+
+    @Autowired
+    MailSender mailSender;
 
     List<User> users;
 
@@ -127,6 +131,7 @@ public class UserServiceTest {
         testUserService.setUserDao(this.userDao);
         testUserService.setDataSource(dataSource);
         testUserService.setTransactionManager(transactionManager);
+        testUserService.setMailSender(mailSender);
 
         userDao.deleteAll();
         for(User user : users){

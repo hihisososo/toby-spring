@@ -887,3 +887,101 @@ UserService 는 트랜잭션 + 비즈니스 로직의 두 가지 책임을 가�
     }
 ```
 <h4>5.4.2 JavaMail 이 포함된 코드의 테스트</h4>
+* 메일 서버가 준비되어 있지 않은 경우에 테스트는 어떻게 할 것인가?
+* 메일 서버가 있다면 테스트 시, 메일 서버에 계속해서 보내는 것은 불필요하지 않나?
+* JavaMail 과 동일한 interface 를 통해 구현된 코드를 통해 메일 전송요청만 보내고
+  실제로는 발송하지 않는 것이 테스트 시 유리할 것이다.
+<h4>5.4.3 테스트를 위한 서비스 추상화</h4>
+* JavaMail 과 동일한 인터페이스를 구현한 오브젝트를 만들어서 사용하려고 했더니. 인터페이스 확장이
+불가한 구조로 되어 있다.
+* 스프링은 JavaMail 처럼 테스트하기 힘든 구조인 API 를 위해 javaMail 에 대한 추상화 기능을
+제공하고 있으며, MailSender 라는 인터페이스이다.
+* 해당 인터페이스를 통해 메일 발송 코드를 구현하면 아래와 같다.
+```java
+private void sendUpgradeMail(User user) {
+        JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
+        mailSender.setHost("mail.server.com");
+
+        SimpleMailMessage mailMessage = new SimpleMailMessage();
+        mailMessage.setTo(user.getEamil());
+        mailMessage.setFrom("useradmin@ksug.org");
+        mailMessage.setSubject("Upgrade 안내");
+        mailMessage.setText("사용자님의 등급이 " + user.getLevel().name() + "로 업그레이드 되었습니다");
+
+        mailSender.send(mailMessage);
+    }
+```
+* 지금 상태는 Impl 구현체가 있어서 테스트용으로 사용하지 못한다.
+* 테스트용으로 사용할 수 있도록 DI 시키고 테스트용 MailSender 를 구현하면 아래와 같다.
+```java
+public class UserService {
+    ...
+    private MailSender mailSender;
+
+    public void setMailSender(MailSender mailSender){
+        this.mailSender = mailSender;
+    }
+    ...
+    private void sendUpgradeMail(User user) {
+        SimpleMailMessage mailMessage = new SimpleMailMessage();
+        mailMessage.setTo(user.getEamil());
+        mailMessage.setFrom("useradmin@ksug.org");
+        mailMessage.setSubject("Upgrade 안내");
+        mailMessage.setText("사용자님의 등급이 " + user.getLevel().name() + "로 업그레이드 되었습니다");
+
+        mailSender.send(mailMessage);
+    }
+```
+```java
+@PropertySource("classpath:application-test.properties")
+public class TestBeanFactory {
+    ...
+    @Value("${mail.host}")
+    String mailHost;
+    ...
+    @Bean
+    public MailSender mailSender(){
+        JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
+        mailSender.setHost(mailHost);
+        return new JavaMailSenderImpl();
+    }
+}
+```
+* DI 를 통해 추상화 하였으니, 이제 테스트용 Sender 를 구현하면 아래와 같다.
+```java
+public class DummyMailSender implements MailSender {
+
+    @Override
+    public void send(SimpleMailMessage simpleMessage) throws MailException {
+
+    }
+
+    @Override
+    public void send(SimpleMailMessage... simpleMessages) throws MailException {
+
+    }
+}
+```
+* UserServiceTest 의 TestUserService 에 아래와 같이 DI 시켜줘야 한다.
+```java
+public class UserServiceTest {
+    ...
+    @Autowired
+    MailSender mailSender;
+    ...
+    @Test
+    public void upgradeAllOrNothing() throws Exception {
+        ...
+        testUserService.setMailSender(mailSender);
+        ...
+    }
+}
+```
+
+<h4>5.4.4 테스트 대역</h4>
+* UserDao 의 DataSource 나, UserService 의 MailSender 인터페이스를 구현한 것들은
+오브젝트의 기능에만 충실하면서 빠르게, 자주 테스트를 시행 할 수 있게 해주는 오브젝트이다.
+* 이런 오브젝트들을 통틀어서 테스트 대역 이라고 부른다.
+* 테스트 대역의 대표적인 것으로 테스트 스텁이 있다.
+* 스텁은 아무것도 하지 않는 역할 이외에도, 리턴값, 예외 발생 등 여러가지 역할으 할 수 있다.
+* 스텁의 리턴값과, 받는 파라미터값 및 내부 행위에 대해 검증하고 싶다면, 목 오브젝트를 사용한다.
