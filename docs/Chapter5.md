@@ -985,3 +985,60 @@ public class UserServiceTest {
 * 테스트 대역의 대표적인 것으로 테스트 스텁이 있다.
 * 스텁은 아무것도 하지 않는 역할 이외에도, 리턴값, 예외 발생 등 여러가지 역할으 할 수 있다.
 * 스텁의 리턴값과, 받는 파라미터값 및 내부 행위에 대해 검증하고 싶다면, 목 오브젝트를 사용한다.
+* UserServiceTest 에 목 오브젝트 개념을 적용해서 전송요청을 받은 이메일 주소를 저장하는 
+일을 수행하는 목 오브젝트를 구현해 보면 아래와 같다.
+```java
+    static class MockMailSender implements MailSender{
+        private List<String> requests = new ArrayList<String>();
+
+        public List<String> getRequests(){
+            return requests;
+        }
+
+        @Override
+        public void send(SimpleMailMessage simpleMessage) throws MailException {
+            requests.add(simpleMessage.getTo()[0]);
+        }
+
+        @Override
+        public void send(SimpleMailMessage... simpleMessages) throws MailException {
+        }
+    }
+```
+* 해당 목 오브젝트를 통해 아래와 같이 메일 전송 대상 리스트를 검증할 수 있다.
+```java
+    @Test
+    public void upgradeLevels() throws Exception {
+        userDao.deleteAll();
+        for (User user : users) {
+            userDao.add(user);
+        }
+
+        MockMailSender mockMailSender = new MockMailSender();
+        userService.setMailSender(mockMailSender);
+
+        userService.upgradeLevels();
+
+        checkLevelUpgraded(users.get(0), false);
+        checkLevelUpgraded(users.get(1), true);
+        checkLevelUpgraded(users.get(2), false);
+        checkLevelUpgraded(users.get(3), true);
+        checkLevelUpgraded(users.get(4), false);
+
+        List<String> request = mockMailSender.getRequests();
+        assertThat(request.size(), is(2));
+        assertThat(request.get(0), is(users.get(1).getEamil()));
+        assertThat(request.get(1), is(users.get(3).getEamil()));
+    }
+```
+
+<h3>5.5 정리</h3>
+* 비즈니스 로직을 담은 코드와 데이터 액세스 로직을 담은 코드는 깔끔하게 분리되어야 한다.
+* DAO 의 기술변화에 서비스 계층의 코드가 영향을 받지 않도록 인터페이스와 DI 를 통해서 결합도를 낮춰야 한다.
+* DAO 를 사용하는 비즈니스 로직에는 단위 작업을 보장해주는 트랜잭션이 필요하다.
+* 트랜잭션 경계 설정 : 트랜잭션의 시작과 끝을 지정하는 일
+* 트랜잭션을 위해 스프링에서 제공하는 트랜잭션 동기화 기법을 사용하는 것이 편리하다.
+* 트랜잭션은 기술마다 사용 방법이 다르므로, 스프링에서 트랜잭션 추상화를 제공한다.
+* 테스트 대상이 사용하는 의존 오브젝트를 대체할 수 있도록 만든 오브젝트를 테스트 대역이라고 한다.
+* 테스트 대역중에서 테스트 대상으로부터 전달받은 정보를 검증할 수 있도록 설계된 것을 목 오브젝트라고 한다.
+

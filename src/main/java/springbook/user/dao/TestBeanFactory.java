@@ -7,10 +7,11 @@ import org.springframework.context.annotation.PropertySource;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.SimpleDriverDataSource;
 import org.springframework.mail.MailSender;
-import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.transaction.PlatformTransactionManager;
 import springbook.user.service.DummyMailSender;
 import springbook.user.service.UserService;
+import springbook.user.service.UserServiceImpl;
+import springbook.user.service.UserServiceTx;
 
 import javax.sql.DataSource;
 
@@ -42,23 +43,29 @@ public class TestBeanFactory {
     }
 
     @Bean
-    public UserService userService(){
-        UserService service = new UserService();
-        service.setUserDao(userDao());
-        service.setDataSource(dataSource());
-        service.setTransactionManager(transactionManager());
-        service.setMailSender(mailSender());
+    public UserServiceTx userService() {
+        UserServiceTx userServiceTx = new UserServiceTx();
+        userServiceTx.setTransactionManager(transactionManager());
+        userServiceTx.setUserService(userServiceImpl());
 
-        return service;
+        return userServiceTx;
     }
 
     @Bean
-    public PlatformTransactionManager transactionManager(){
+    public PlatformTransactionManager transactionManager() {
         return new DataSourceTransactionManager(dataSource());
     }
 
     @Bean
-    public MailSender mailSender(){
+    public MailSender mailSender() {
         return new DummyMailSender();
+    }
+
+    @Bean
+    UserServiceImpl userServiceImpl() {
+        UserServiceImpl userServiceImpl = new UserServiceImpl();
+        userServiceImpl.setUserDao(userDao());
+        userServiceImpl.setMailSender(mailSender());
+        return userServiceImpl;
     }
 }
