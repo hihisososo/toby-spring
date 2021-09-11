@@ -8,10 +8,7 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.SimpleDriverDataSource;
 import org.springframework.mail.MailSender;
 import org.springframework.transaction.PlatformTransactionManager;
-import springbook.user.service.DummyMailSender;
-import springbook.user.service.UserService;
-import springbook.user.service.UserServiceImpl;
-import springbook.user.service.UserServiceTx;
+import springbook.user.service.*;
 
 import javax.sql.DataSource;
 
@@ -43,12 +40,19 @@ public class TestBeanFactory {
     }
 
     @Bean
-    public UserServiceTx userService() {
-        UserServiceTx userServiceTx = new UserServiceTx();
-        userServiceTx.setTransactionManager(transactionManager());
-        userServiceTx.setUserService(userServiceImpl());
+    public Object userService() throws Exception {
+        return txProxyFactoryBean().getObject();
+    }
 
-        return userServiceTx;
+    @Bean
+    public TxProxyFactoryBean txProxyFactoryBean() throws Exception {
+        TxProxyFactoryBean txProxyFactoryBean = new TxProxyFactoryBean();
+        txProxyFactoryBean.setTarget(userServiceImpl());
+        txProxyFactoryBean.setTransactionManager(transactionManager());
+        txProxyFactoryBean.setPattern("upgradeLevels");
+        txProxyFactoryBean.setServiceInterface(UserService.class);
+
+        return txProxyFactoryBean;
     }
 
     @Bean
@@ -62,10 +66,11 @@ public class TestBeanFactory {
     }
 
     @Bean
-    UserServiceImpl userServiceImpl() {
+    public UserServiceImpl userServiceImpl() {
         UserServiceImpl userServiceImpl = new UserServiceImpl();
         userServiceImpl.setUserDao(userDao());
         userServiceImpl.setMailSender(mailSender());
         return userServiceImpl;
     }
+
 }

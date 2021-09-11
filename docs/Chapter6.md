@@ -239,4 +239,278 @@ static class MockUserDao implements UserDao {
 * 목 오브젝트를 생성하는 것은 상당히 번거로운 작업이다.
 * 목 오브젝트를 편리하게 작성하도록 도와주는 다양한 목 오브젝트 지원 프레임워크가 있다.
 * 그 중 하나는 Mockito 프레임워크이다
+* Mockito 프레임워크를 이용하여 테스트를 작성하면 아래와 같다.
 
+<h3>6.3 다이내믹 프록시와 팩토리 빈</h3>
+<h4>6.3.1 프록시와 프록시 패턴, 데코레이터 패턴</h4>
+* 현재 트랜잭션을 구현한 구조를 보면, 사용자가 인터페이스를 통해 UserService 를 사용하고 있고 
+UserServiceTx 가 명령을 받아서 실제 로직인 UserServiceImpl 을 호출해주고 있다.
+* 이렇게 중간에 받아서 위임해주는 클래스를 통해 구현하는 로직을 프록시 라고 한다.
+UserServiceTx 가 프록시, UserServiceImpl 이 타깃이 된다.
+* 런타임시에 부가 기능을 다이나믹하게 제공하기 위해 프록시를 사용하는 것을 데코레이터 패턴이라고 한다.
+* 접근 제어를 위해 사용하는 프록시를 프록시 패턴이라고 한다.
+
+<h4>6.3.2 다이내믹 프록시</h4>
+* 프록시를 구현 시, 몇가지 불편한 점이 있다.
+ 1. 타깃의 인터페이스를 전부 구현하고 위임하는 코드를 작성하기 번거롭다.
+ 2. 부가기능 코드가 중복될 가능성이 많다. update() 메소드 외에 add() 메소드에도 적용되어야 한다고 하면,
+트랜잭션 코드가 중복되게 된다. 여기다 여러개의 트랜잭션 프록시 오브젝트를 사용하게 되면 중복이 더 심해진다.
+* 인터페이스 메소드의 구현을 해결하는데 유용한 것이 있는데 JDK 의 다이내믹 프록시이다.
+* 다이내믹 프록시를 이용한 프록시를 만들어보면 아래와 같다.
+```java
+public interface Hello {
+    String sayHello(String name);
+    String sayHi(String name);
+    String sayThankYou(String name);
+}
+```
+```java
+public class HelloTarget implements Hello{
+
+    @Override
+    public String sayHello(String name) {
+        return "Hello " + name;
+    }
+
+    @Override
+    public String sayHi(String name) {
+        return "Hi " + name;
+    }
+
+    @Override
+    public String sayThankYou(String name) {
+        return "Thank You " + name;
+    }
+}
+
+```
+```java
+public class ProxyTest {
+    @Test
+    public void simpleProxy(){
+        Hello hello = new HelloTarget();
+        assertThat(hello.sayHello("Toby"), is("Hello Toby"));
+        assertThat(hello.sayHi("Toby"), is("Hi Toby"));
+        assertThat(hello.sayThankYou("Toby"), is("Thank You Toby"));
+    }
+}
+```
+```java
+public class HelloUpperCase implements Hello{
+    Hello hello;
+
+    public HelloUpperCase(Hello hello) {
+        this.hello = hello;
+    }
+
+    @Override
+    public String sayHello(String name) {
+        return hello.sayHello(name).toUpperCase();
+    }
+
+    @Override
+    public String sayHi(String name) {
+        return hello.sayHi(name).toUpperCase();
+    }
+
+    @Override
+    public String sayThankYou(String name) {
+        return hello.sayHi(name).toUpperCase();
+    }
+}
+```
+* 위 코드는 프록시 적용의 일반적인 문제점 두 가지를 모두 갖고 있다.
+모든 메소드를 구현해 위임하도록 코드를 만들어야하고, 부가기능인 UpperCase 가 모든 메소드에 중복되어 나타난다.
+* 해결을 위해 다이나믹 프록시를 적용하자, JDK 에서 제공해주는 InvocationHander 인터페이스의 invoke() 메소드를 구현하면,
+프록시의 모든 메소드 호출 시, invoke() 메소드를 타게 된다.
+ 이 부분을 통해 로직 및 위임 구현을 없앨 수 있다. 구현하면 아래와 같다.
+```java
+public class UpperCaseHandler implements InvocationHandler {
+    Hello target;
+
+    public UpperCaseHandler(Hello target) {
+        this.target = target;
+    }
+
+    @Override
+    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        String ret = (String) method.invoke(target, args);
+        return ret.toUpperCase();
+    }
+}
+```
+* 이 클래스를 사용하는 프록시를 만들어 보면 아래와 같다.
+```java
+Hello proxiedHello = (Hello) Proxy.newProxyInstance(
+                getClass().getClassLoader(),
+                new Class[]{Hello.class},
+                new UpperCaseHandler(new HelloTarget()));
+```
+* 이렇게 다이내믹 프록시를 사용하여 구현하였는데 오히려 이전 코드보다 복잡하고 번거로운 파라미터들이 생겼다. 사용상의 이점은 무엇일까?
+* 다이내믹 프록시의 장점은, 인터페이스의 메소드가 많으면 많아질 수록 이점이 드러나는데, 한 개의 메소드에 구현이 정리된다는 것이다.
+또한 Mehod 파라미터를 통해 메소드의 여러 부가정보를 통해 로직을 각각 다르게 가져가면, 한데에 모인 깔끔한 코드가 된다.
+
+<h4>6.3.3 다이내믹 프록시를 이용한 트랜잭션 부가기능</h4>
+* TxUserService 를 다이내믹 프록시를 이용하여 구현하기위해 InvecationHander 를 구현하면 아래와 같다.
+```java
+public class TransactionHandler implements InvocationHandler {
+    private Object target;
+    private PlatformTransactionManager transactionManager;
+    private String pattern;
+
+    public void setTarget(Object target) {
+        this.target = target;
+    }
+
+    public void setTransactionManager(PlatformTransactionManager transactionManager) {
+        this.transactionManager = transactionManager;
+    }
+
+    public void setPattern(String pattern) {
+        this.pattern = pattern;
+    }
+
+    @Override
+    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        if (method.getName().startsWith(pattern)) {
+            return invokeInTransaction(method, args);
+        } else {
+            return method.invoke(target, args);
+        }
+    }
+
+    private Object invokeInTransaction(Method method, Object[] args) throws Throwable {
+        TransactionStatus status = this.transactionManager.getTransaction(new DefaultTransactionDefinition());
+
+        try {
+            Object ret = method.invoke(target, args);
+            this.transactionManager.commit(status);
+            return ret;
+        } catch (InvocationTargetException e) {
+            this.transactionManager.rollback(status);
+            throw e.getTargetException();
+        }
+    }
+}
+```
+* 기존의 upgradeAllOrNothing() 메소드를 다이내믹 프록시를 이용하도록 수정하면 아래와 같다.
+```java
+    @Test
+    public void upgradeAllOrNothing() throws Exception {
+        ...
+        TransactionHandler txHandler = new TransactionHandler();
+        txHandler.setTarget(testUserService);
+        txHandler.setTransactionManager(transactionManager);
+        txHandler.setPattern("upgradeLevels");
+        UserService txUserService = (UserService) Proxy.newProxyInstance(getClass().getClassLoader()
+                , new Class[]{UserService.class}, txHandler);
+        ...
+    }
+```
+
+<h4>6.3.4 다이내믹 프록시를 위한 팩토리 빈</h4>
+* 다이내믹 프록시를 오브젝트는 일반적으로 Bean 으로 등록할 수 없다. 왜냐하면 오브젝트 생성 메소드 자체가 static 이기 떄문이다(xml 설정에만 해당)
+따라서 BeanFactory 를 만들어서 설정에 적용해주어야 한다.
+* BeanFactory interface 를 구현하여 설정하면 아래와 같다.
+```java
+public class TestBeanFactory {
+    ...
+    @Bean
+    public Object userService() throws Exception {
+     return txProxyFactoryBean().getObject();
+    }
+   
+    @Bean
+    public TxProxyFactoryBean txProxyFactoryBean() throws Exception {
+     TxProxyFactoryBean txProxyFactoryBean = new TxProxyFactoryBean();
+     txProxyFactoryBean.setTarget(userServiceImpl());
+     txProxyFactoryBean.setTransactionManager(transactionManager());
+     txProxyFactoryBean.setPattern("upgradeLevels");
+     txProxyFactoryBean.setServiceInterface(UserService.class);
+   
+     return txProxyFactoryBean;
+    }
+ }
+```
+* 프록시 빈 설정 후, 테스트 코드를 살펴보면 트랜잭션이 검증되는 곳은 UpgradeAllOrNothing() 메소드 밖에 없다
+해당 메소드에서도 심지어 Proxy 객체를 생성하여 테스트 하고 있으므로 빈에 등록된 것과는 별개다
+* 또한 타깃 오브젝트가 중간에 오류를 낼수 있는 TestUserService 가 아니므로 중간에 오류도 나지 않는다.
+* 해당 부분을 개선하기 위한 방법 중 하나로, 팩토리 빈을 직접 가져와서 인스턴스를 생성하는 방식을 차용한다.
+* 적용한 테스트 코드는 아래와 같다.
+```java
+public class UserServiceTest {
+    ...
+    @Autowired
+    ApplicationContext context;
+    ...
+    @Test
+    @DirtiesContext
+    public void upgradeAllOrNothing() throws Exception {
+        TestUserService testUserService = new TestUserService(users.get(3).getId());
+        testUserService.setUserDao(this.userDao);
+        testUserService.setMailSender(mailSender);
+
+        TxProxyFactoryBean txProxyFactoryBean = context.getBean("&txProxyFactoryBean", TxProxyFactoryBean.class);
+        txProxyFactoryBean.setTarget(testUserService);
+        UserService txUserService = (UserService) txProxyFactoryBean.getObject();
+        ...
+```
+<h4>6.3.5 프록시 팩토리 빈 방식의 장점과 한계</h4>
+* 이제 트랜잭션을 적용하고 싶은 DAO 가 있으면, 코드 추가 없이 빈 설정으로만 구현할 수 있다.
+* 하지만 여러 클래스에 공통적으로 적용하려고 할 시, 설정의 중복이 발생하게 된다.
+* 여러개의 부가 기능을 제공하고 싶을 경우에도 프록시 빈 설정이 굉장히 비대해지게 된다.
+
+<h3>6.3 스프링의 프록시 팩토리 빈</h3>
+<h4>6.4.1 ProxyFactoryBean</h4>
+* 다이나믹 프록시를 편하게 생성하도록, 일관되게 생성하도록 추상화된 ProxyFactoryBean 을 제공한다.
+* 일전에 생성했던 프록시 학습 테스트를 ProxyFactoryBean 을 사용하도록 하면 아래와 같다.
+```java
+public class DynamicProxyTest {
+
+    @Test
+    public void proxyFactoryBean(){
+        ProxyFactoryBean pfBean = new ProxyFactoryBean();
+        pfBean.setTarget(new HelloTarget());
+        pfBean.addAdvice(new UppercaseAdvice());
+
+        Hello proxiedHello = (Hello) pfBean.getObject();
+
+        assertThat(proxiedHello.sayHello("Toby"), is("HELLO TOBY"));
+        assertThat(proxiedHello.sayHi("Toby"), is("HI TOBY"));
+        assertThat(proxiedHello.sayThankYou("Toby"), is("THANK YOU TOBY"));
+
+    }
+
+    static class UppercaseAdvice implements MethodInterceptor{
+        public Object invoke(MethodInvocation invocation) throws Throwable{
+            String ret = (String)invocation.proceed();
+            return ret.toUpperCase();
+        }
+    }
+
+    static interface Hello {
+        String sayHello(String name);
+        String sayHi(String name);
+        String sayThankYou(String name);
+    }
+
+    static class HelloTarget implements Hello {
+
+        @Override
+        public String sayHello(String name) {
+            return "Hello " + name;
+        }
+
+        @Override
+        public String sayHi(String name) {
+            return "Hi " + name;
+        }
+
+        @Override
+        public String sayThankYou(String name) {
+            return "Thank You " + name;
+        }
+    }
+```
+* ProxyFactoryBean 을 사용하면, Hello 라는 타깃 오브젝트가 없어지고, Hello.class 타입도 넘겨주지 않아도 된다.
+* addAdvice() 메소드를 통해 부가기능을 여러개 추가할 수 있다. 프록시를 사용해서 처리하는 부가 기능을 advice 라 칭한다.

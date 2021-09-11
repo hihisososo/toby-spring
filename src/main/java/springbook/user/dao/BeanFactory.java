@@ -9,9 +9,9 @@ import org.springframework.jdbc.datasource.SimpleDriverDataSource;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.transaction.PlatformTransactionManager;
+import springbook.user.service.TxProxyFactoryBean;
 import springbook.user.service.UserService;
 import springbook.user.service.UserServiceImpl;
-import springbook.user.service.UserServiceTx;
 
 import javax.sql.DataSource;
 
@@ -46,12 +46,19 @@ public class BeanFactory {
     }
 
     @Bean
-    public UserServiceTx userService() {
-        UserServiceTx userServiceTx = new UserServiceTx();
-        userServiceTx.setTransactionManager(transactionManager());
-        userServiceTx.setUserService(userServiceImpl());
+    public Object userService() throws Exception {
+        return txProxyFactoryBean().getObject();
+    }
 
-        return userServiceTx;
+    @Bean
+    public TxProxyFactoryBean txProxyFactoryBean() throws Exception {
+        TxProxyFactoryBean txProxyFactoryBean = new TxProxyFactoryBean();
+        txProxyFactoryBean.setTarget(userServiceImpl());
+        txProxyFactoryBean.setTransactionManager(transactionManager());
+        txProxyFactoryBean.setPattern("upgradeLevels");
+        txProxyFactoryBean.setServiceInterface(UserService.class);
+
+        return txProxyFactoryBean;
     }
 
     @Bean
