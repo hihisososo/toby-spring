@@ -514,3 +514,144 @@ public class DynamicProxyTest {
 ```
 * ProxyFactoryBean 을 사용하면, Hello 라는 타깃 오브젝트가 없어지고, Hello.class 타입도 넘겨주지 않아도 된다.
 * addAdvice() 메소드를 통해 부가기능을 여러개 추가할 수 있다. 프록시를 사용해서 처리하는 부가 기능을 advice 라 칭한다.
+* pointCut 은, 프록시가 어떤 메소드에 대해 적용될 지 정하는 알고리즘을 뜻한다.
+* pointcut, advice 는 타깃 오브젝트 정보가 없으므로, Bean 에 등록하여 DI 를 통해 여러 프록시에 적용할 수 있다.
+* pointcut 을 적용하면 아래와 같다.
+```java
+    @Test
+    public void pointcutAdvisor() {
+        ProxyFactoryBean pfBean = new ProxyFactoryBean();
+        pfBean.setTarget(new HelloTarget());
+
+        NameMatchMethodPointcut pointcut = new NameMatchMethodPointcut();
+        pointcut.setMappedName("sayH*");
+
+        pfBean.addAdvisor(new DefaultPointcutAdvisor(pointcut, new UppercaseAdvice()));
+
+        Hello proxiedHello = (Hello) pfBean.getObject();
+
+        assertThat(proxiedHello.sayHello("Toby"), is("HELLO TOBY"));
+        assertThat(proxiedHello.sayHi("Toby"), is("HI TOBY"));
+        assertThat(proxiedHello.sayThankYou("Toby"), is("Thank You Toby"));
+
+    }
+```
+* advisor = pointcut + advice 를 뜻한다.
+
+<h4>6.4.2 ProxyFactoryBean 적용</h4>
+* JDK 다이내믹 프록시를 사용했던 TxProxyFactoryBean 에서 스프링이 제공하는 ProxyFactoryBean 으로 변경해본다
+* 일단 Advice 를 아래와 같이 생성한다.
+```java
+public class TransactionAdvice implements MethodInterceptor {
+    PlatformTransactionManager transactionManager;
+
+    public void setTransactionManager(PlatformTransactionManager transactionManager) {
+        this.transactionManager = transactionManager;
+    }
+
+    @Override
+    public Object invoke(MethodInvocation invocation) throws Throwable {
+        TransactionStatus status = this.transactionManager.getTransaction(new DefaultTransactionDefinition());
+        try {
+            Object ret = invocation.proceed();
+            this.transactionManager.commit(status);
+            return ret;
+        } catch (RuntimeException e) {
+            this.transactionManager.rollback(status);
+            throw e;
+        }
+    }
+}
+```
+* 포인트컷, 어드바이스, 어드바이저, ProxyFactoryBean 을 Bean 에 등록한다.
+```java
+    @Bean
+    public ProxyFactoryBean proxyFactoryBean() throws Exception {
+        ProxyFactoryBean factoryBean = new ProxyFactoryBean();
+        factoryBean.setTarget(userServiceImpl());
+        factoryBean.setInterceptorNames("transactionAdvisor");
+
+        return factoryBean;
+    }
+    ...
+   @Bean
+   public TransactionAdvice transactionAdvice() {
+           TransactionAdvice transactionAdvice = new TransactionAdvice();
+           transactionAdvice.setTransactionManager(transactionManager());
+           return transactionAdvice;
+           }
+   
+   @Bean
+   public NameMatchMethodPointcut transactionPointcut() {
+           NameMatchMethodPointcut pointcut = new NameMatchMethodPointcut();
+           pointcut.setMappedName("upgrade*");
+           return pointcut;
+           }
+   
+   @Bean
+   public DefaultPointcutAdvisor transactionAdvisor() {
+           DefaultPointcutAdvisor defaultPointcutAdvisor = new DefaultPointcutAdvisor();
+           defaultPointcutAdvisor.setAdvice(transactionAdvice());
+           defaultPointcutAdvisor.setPointcut(transactionPointcut());
+           return defaultPointcutAdvisor;
+           }
+```
+* 트랜잭션이 연관된 upgradeAllOrNothig() 테스트 메소드를 아래와 같이 수정한다.
+```java
+@Test
+    @DirtiesContext
+    public void upgradeAllOrNothing() throws Exception {
+        ...
+        ProxyFactoryBean txProxyFactoryBean = context.getBean("&proxyFactoryBean", ProxyFactoryBean.class);
+        ...
+    }
+```
+<h3>6.5 스프링 AOP</h3>
+<h4>6.5.1 자동 프록시 생성</h4>
+* ProxyFactoryBean 을 통해 부가기능을 설정파일을 통해 해결할 수 있도록 변경하였다.
+* 하지만 이 부가기능이 적용될 클래스가 몇백개라면 설명파일을 만드는 수고가 엄청날 것이다.
+* 클래스 리스트를 통해 자동으로 Bean 이 등록되게 할 수 는 없을까?
+* DefaultAdvisorAutoProxyCreator Bean 후처리기를 통해, 빈으로 등록 된 모든 어드바이저 내의
+포인트컷을 이용하여 프록시 적용 대상인지 판별하여 프록시를 빈으로 등록한다.
+* 포인트컷 클래스 필터 테스트를 간단하게 짜보면 아래와 같다.
+```java
+@Test
+    public void classNamePointcutAdvisor() {
+        NameMatchMethodPointcut classMethodPointcut = new NameMatchMethodPointcut() {
+            public ClassFilter getClassFilter() {
+                return new ClassFilter() {
+                    @Override
+                    public boolean matches(Class<?> clazz) {
+                        return clazz.getSimpleName().startsWith("HelloT");
+                    }
+                };
+            }
+        };
+        classMethodPointcut.setMappedName("sayH*");
+
+        checkAdviced(new HelloTarget(), classMethodPointcut, true);
+
+        class HelloWorld extends HelloTarget{};
+        checkAdviced(new HelloWorld(), classMethodPointcut, false);
+
+        class HelloToby extends HelloTarget{};
+        checkAdviced(new HelloToby(), classMethodPointcut, true);
+    }
+
+    private void checkAdviced(Object target, NameMatchMethodPointcut pointcut, boolean adviced) {
+        ProxyFactoryBean pfBean = new ProxyFactoryBean();
+        pfBean.setTarget(target);
+        pfBean.addAdvisor(new DefaultPointcutAdvisor(pointcut, new UppercaseAdvice()));
+        Hello proxiedHello = (Hello) pfBean.getObject();
+
+        if(adviced){
+            assertThat(proxiedHello.sayHello("Toby"), is("HELLO TOBY"));
+            assertThat(proxiedHello.sayHi("Toby"), is("HI TOBY"));
+            assertThat(proxiedHello.sayThankYou("Toby"), is("Thank You Toby"));
+        }else{
+            assertThat(proxiedHello.sayHello("Toby"), is("Hello Toby"));
+            assertThat(proxiedHello.sayHi("Toby"), is("Hi Toby"));
+            assertThat(proxiedHello.sayThankYou("Toby"), is("Thank You Toby"));
+        }
+    }
+```
