@@ -655,3 +655,33 @@ public class TransactionAdvice implements MethodInterceptor {
         }
     }
 ```
+
+<h4>6.5.2 DefaultAdvisorAutoProxyCreator 의 적용</h4>
+* Bean 에 적용하기 위해 클래스 필터가 포함된 포인트컷을 만들면 아래와 같다.
+```java
+public class NameMatchClassMethodPointcut extends NameMatchMethodPointcut {
+    public void setMappedName(String mappedClassName){
+        this.setClassFilter(new SimpleClassFilter(mappedClassName));
+    }
+
+    static class SimpleClassFilter implements ClassFilter{
+        String mappedName;
+
+        private SimpleClassFilter(String mappedName){
+            this.mappedName = mappedName;
+        }
+
+        public boolean matches(Class<?> clazz){
+            return PatternMatchUtils.simpleMatch(mappedName, clazz.getSimpleName());
+        }
+    }
+
+```
+* DefaultAdvisorAutoProxyCreator 빈을 등록하면, 등록된 빈 중에서 Advisor 인터페이스를 구현한 것을 모두 찾는다.
+  DefaultAdvisorAutoProxyCreator 빈을 등록하면 아래와 같다.
+```java
+   @Bean
+    public DefaultAdvisorAutoProxyCreator defaultAdvisorAutoProxyCreator(){
+        return new DefaultAdvisorAutoProxyCreator();
+    }
+```
