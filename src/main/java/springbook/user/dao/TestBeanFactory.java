@@ -12,6 +12,7 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.SimpleDriverDataSource;
 import org.springframework.mail.MailSender;
 import org.springframework.transaction.PlatformTransactionManager;
+import springbook.user.proxy.NameMatchClassMethodPointcut;
 import springbook.user.service.*;
 
 import javax.sql.DataSource;
@@ -44,20 +45,6 @@ public class TestBeanFactory {
     }
 
     @Bean
-    public Object userService() throws Exception {
-        return proxyFactoryBean().getObject();
-    }
-
-    @Bean
-    public ProxyFactoryBean proxyFactoryBean() throws Exception {
-        ProxyFactoryBean factoryBean = new ProxyFactoryBean();
-        factoryBean.setTarget(userServiceImpl());
-        factoryBean.setInterceptorNames("transactionAdvisor");
-
-        return factoryBean;
-    }
-
-    @Bean
     public PlatformTransactionManager transactionManager() {
         return new DataSourceTransactionManager(dataSource());
     }
@@ -68,11 +55,11 @@ public class TestBeanFactory {
     }
 
     @Bean
-    public UserServiceImpl userServiceImpl() {
-        UserServiceImpl userServiceImpl = new UserServiceImpl();
-        userServiceImpl.setUserDao(userDao());
-        userServiceImpl.setMailSender(mailSender());
-        return userServiceImpl;
+    public UserService userService() {
+        UserServiceImpl userService = new UserServiceImpl();
+        userService.setUserDao(userDao());
+        userService.setMailSender(mailSender());
+        return userService;
     }
 
     @Bean
@@ -83,8 +70,9 @@ public class TestBeanFactory {
     }
 
     @Bean
-    public NameMatchMethodPointcut transactionPointcut() {
-        NameMatchMethodPointcut pointcut = new NameMatchMethodPointcut();
+    public NameMatchClassMethodPointcut transactionPointcut() {
+        NameMatchClassMethodPointcut pointcut = new NameMatchClassMethodPointcut();
+        pointcut.setMappedClassName("*ServiceImpl");
         pointcut.setMappedName("upgrade*");
         return pointcut;
     }

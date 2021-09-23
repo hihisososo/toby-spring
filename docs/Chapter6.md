@@ -660,7 +660,7 @@ public class TransactionAdvice implements MethodInterceptor {
 * Bean 에 적용하기 위해 클래스 필터가 포함된 포인트컷을 만들면 아래와 같다.
 ```java
 public class NameMatchClassMethodPointcut extends NameMatchMethodPointcut {
-    public void setMappedName(String mappedClassName){
+    public void setMappedClassName(String mappedClassName){
         this.setClassFilter(new SimpleClassFilter(mappedClassName));
     }
 
@@ -675,7 +675,7 @@ public class NameMatchClassMethodPointcut extends NameMatchMethodPointcut {
             return PatternMatchUtils.simpleMatch(mappedName, clazz.getSimpleName());
         }
     }
-
+}
 ```
 * DefaultAdvisorAutoProxyCreator 빈을 등록하면, 등록된 빈 중에서 Advisor 인터페이스를 구현한 것을 모두 찾는다.
   DefaultAdvisorAutoProxyCreator 빈을 등록하면 아래와 같다.
@@ -685,3 +685,25 @@ public class NameMatchClassMethodPointcut extends NameMatchMethodPointcut {
         return new DefaultAdvisorAutoProxyCreator();
     }
 ```
+* 설정파일에 새로 생성한 포인트컷으로 대체하면 아래와 같다
+```java
+    @Bean
+    public NameMatchClassMethodPointcut transactionPointcut() {
+        NameMatchClassMethodPointcut pointcut = new NameMatchClassMethodPointcut();
+        pointcut.setMappedClassName("*ServiceImpl");
+        pointcut.setMappedName("upgrade*");
+        return pointcut;
+    }
+```
+* 자동으로 프록시 빈 생성기가 포인트컷을 주입해주므로, 기존에 ProxyFactoryBean 과 관련된 설정은 삭제한다
+* UserServiceImpl 도 동일하게 UserService 로 돌아올 수 있도록 한다.
+```java
+    @Bean
+    public UserService userService() {
+        UserServiceImpl userService = new UserServiceImpl();
+        userService.setUserDao(userDao());
+        userService.setMailSender(mailSender());
+        return userService;
+    }
+```
+

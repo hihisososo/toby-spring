@@ -1,11 +1,11 @@
-package springbook.learningtest.proxy;
+package springbook.user.proxy;
 
 import org.springframework.aop.ClassFilter;
 import org.springframework.aop.support.NameMatchMethodPointcut;
 import org.springframework.util.PatternMatchUtils;
 
 public class NameMatchClassMethodPointcut extends NameMatchMethodPointcut {
-    public void setMappedName(String mappedClassName){
+    public void setMappedClassName(String mappedClassName){
         this.setClassFilter(new SimpleClassFilter(mappedClassName));
     }
 
@@ -20,5 +20,4 @@ public class NameMatchClassMethodPointcut extends NameMatchMethodPointcut {
             return PatternMatchUtils.simpleMatch(mappedName, clazz.getSimpleName());
         }
     }
-
 }
