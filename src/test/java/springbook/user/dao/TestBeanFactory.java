@@ -1,9 +1,7 @@
 package springbook.user.dao;
 
-import org.springframework.aop.framework.ProxyFactoryBean;
 import org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator;
 import org.springframework.aop.support.DefaultPointcutAdvisor;
-import org.springframework.aop.support.NameMatchMethodPointcut;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -36,6 +34,9 @@ public class TestBeanFactory {
 
     @Bean
     public DataSource dataSource() {
+        System.out.println(datasourceUrl);
+        System.out.println(datasourceUsername);
+        System.out.println(datasourcePassword);
         SimpleDriverDataSource dataSource = new SimpleDriverDataSource();
         dataSource.setDriverClass(org.h2.Driver.class);
         dataSource.setUrl(datasourceUrl);
@@ -72,7 +73,7 @@ public class TestBeanFactory {
     @Bean
     public NameMatchClassMethodPointcut transactionPointcut() {
         NameMatchClassMethodPointcut pointcut = new NameMatchClassMethodPointcut();
-        pointcut.setMappedClassName("*ServiceImpl");
+        pointcut.setMappedClassName("*ServiceImpls");
         pointcut.setMappedName("upgrade*");
         return pointcut;
     }
@@ -88,5 +89,13 @@ public class TestBeanFactory {
     @Bean
     public DefaultAdvisorAutoProxyCreator defaultAdvisorAutoProxyCreator(){
         return new DefaultAdvisorAutoProxyCreator();
+    }
+
+    @Bean
+    public UserService testUserService(){
+        UserServiceTest.TestUserServiceImpl testUserService = new UserServiceTest.TestUserServiceImpl();
+        testUserService.setUserDao(userDao());
+        testUserService.setMailSender(mailSender());
+        return testUserService;
     }
 }

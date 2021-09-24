@@ -37,9 +37,8 @@ import static springbook.user.service.UserServiceImpl.MIN_RECOMMEND_FOR_GOLD;
 public class UserServiceTest {
     @Autowired
     UserService userService;
-
     @Autowired
-    UserServiceImpl userServiceImpl;
+    UserService testUserService;
 
     @Autowired
     UserDao userDao;
@@ -158,12 +157,8 @@ public class UserServiceTest {
         assertThat(userWithoutLevelRead.getLevel(), is(Level.BASIC));
     }
 
-    static class TestUserService extends UserServiceImpl {
-        private String id;
-
-        private TestUserService(String id) {
-            this.id = id;
-        }
+    public static class TestUserServiceImpl extends UserServiceImpl {
+        private String id = "madnite1";
 
         @Override
         protected void upgradeLevel(User user) {
@@ -180,21 +175,13 @@ public class UserServiceTest {
     @Test
     @DirtiesContext
     public void upgradeAllOrNothing() throws Exception {
-        TestUserService testUserService = new TestUserService(users.get(3).getId());
-        testUserService.setUserDao(this.userDao);
-        testUserService.setMailSender(mailSender);
-
-        ProxyFactoryBean txProxyFactoryBean = context.getBean("&proxyFactoryBean", ProxyFactoryBean.class);
-        txProxyFactoryBean.setTarget(testUserService);
-        UserService txUserService = (UserService) txProxyFactoryBean.getObject();
-
         userDao.deleteAll();
         for (User user : users) {
             userDao.add(user);
         }
 
         try {
-            txUserService.upgradeLevels();
+            this.testUserService.upgradeLevels();
             fail("TestUserServiceException expected");
         } catch (TestUserServiceException e) {
 
