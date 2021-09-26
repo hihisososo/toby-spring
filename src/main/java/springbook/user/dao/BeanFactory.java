@@ -1,5 +1,6 @@
 package springbook.user.dao;
 
+import org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator;
 import org.springframework.aop.support.DefaultPointcutAdvisor;
 import org.springframework.aop.support.NameMatchMethodPointcut;
 import org.springframework.beans.factory.annotation.Value;
@@ -11,25 +12,22 @@ import org.springframework.jdbc.datasource.SimpleDriverDataSource;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.transaction.PlatformTransactionManager;
-import springbook.user.service.TransactionAdvice;
-import springbook.user.service.TxProxyFactoryBean;
-import springbook.user.service.UserService;
-import springbook.user.service.UserServiceImpl;
+import springbook.user.proxy.NameMatchClassMethodPointcut;
+import springbook.user.service.*;
 
 import javax.sql.DataSource;
 
 @SpringBootConfiguration
-@PropertySource("classpath:application.properties")
+@PropertySource("classpath:application-test.properties")
 public class BeanFactory {
     @Value("${datasource.url}")
     String datasourceUrl;
+
     @Value("${datasource.username}")
     String datasourceUsername;
+
     @Value("${datasource.password}")
     String datasourcePassword;
-
-    @Value("${mail.host}")
-    String mailHost;
 
     @Bean
     public UserDao userDao() {
@@ -40,6 +38,9 @@ public class BeanFactory {
 
     @Bean
     public DataSource dataSource() {
+        System.out.println(datasourceUrl);
+        System.out.println(datasourceUsername);
+        System.out.println(datasourcePassword);
         SimpleDriverDataSource dataSource = new SimpleDriverDataSource();
         dataSource.setDriverClass(org.h2.Driver.class);
         dataSource.setUrl(datasourceUrl);
@@ -49,39 +50,21 @@ public class BeanFactory {
     }
 
     @Bean
-    public Object userService() throws Exception {
-        return txProxyFactoryBean().getObject();
-    }
-
-    @Bean
-    public TxProxyFactoryBean txProxyFactoryBean() throws Exception {
-        TxProxyFactoryBean txProxyFactoryBean = new TxProxyFactoryBean();
-        txProxyFactoryBean.setTarget(userServiceImpl());
-        txProxyFactoryBean.setTransactionManager(transactionManager());
-        txProxyFactoryBean.setPattern("upgradeLevels");
-        txProxyFactoryBean.setServiceInterface(UserService.class);
-
-        return txProxyFactoryBean;
-    }
-
-    @Bean
     public PlatformTransactionManager transactionManager() {
         return new DataSourceTransactionManager(dataSource());
     }
 
     @Bean
-    public MailSender mailSender(){
-        JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
-        mailSender.setHost(mailHost);
-        return new JavaMailSenderImpl();
+    public MailSender mailSender() {
+        return new DummyMailSender();
     }
 
     @Bean
-    UserServiceImpl userServiceImpl() {
-        UserServiceImpl userServiceImpl = new UserServiceImpl();
-        userServiceImpl.setUserDao(userDao());
-        userServiceImpl.setMailSender(mailSender());
-        return userServiceImpl;
+    public UserService userService() {
+        UserServiceImpl userService = new UserServiceImpl();
+        userService.setUserDao(userDao());
+        userService.setMailSender(mailSender());
+        return userService;
     }
 
     @Bean
@@ -92,8 +75,9 @@ public class BeanFactory {
     }
 
     @Bean
-    public NameMatchMethodPointcut transactionPointcut() {
-        NameMatchMethodPointcut pointcut = new NameMatchMethodPointcut();
+    public NameMatchClassMethodPointcut transactionPointcut() {
+        NameMatchClassMethodPointcut pointcut = new NameMatchClassMethodPointcut();
+        pointcut.setMappedClassName("*ServiceImpls");
         pointcut.setMappedName("upgrade*");
         return pointcut;
     }
@@ -104,5 +88,18 @@ public class BeanFactory {
         defaultPointcutAdvisor.setAdvice(transactionAdvice());
         defaultPointcutAdvisor.setPointcut(transactionPointcut());
         return defaultPointcutAdvisor;
+    }
+
+    @Bean
+    public DefaultAdvisorAutoProxyCreator defaultAdvisorAutoProxyCreator(){
+        return new DefaultAdvisorAutoProxyCreator();
+    }
+
+    @Bean
+    public UserService testUserService(){
+        TestUserServiceImpl testUserService = new TestUserServiceImpl();
+        testUserService.setUserDao(userDao());
+        testUserService.setMailSender(mailSender());
+        return testUserService;
     }
 }

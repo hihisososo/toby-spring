@@ -13,7 +13,7 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.transaction.PlatformTransactionManager;
-import springbook.user.dao.TestBeanFactory;
+import springbook.user.dao.BeanFactory;
 import springbook.user.dao.UserDao;
 import springbook.user.domain.Level;
 import springbook.user.domain.User;
@@ -33,7 +33,7 @@ import static springbook.user.service.UserServiceImpl.MIN_LOGCOUNT_FOR_SILVER;
 import static springbook.user.service.UserServiceImpl.MIN_RECOMMEND_FOR_GOLD;
 
 @SpringBootTest
-@ContextConfiguration(classes = {TestBeanFactory.class})
+@ContextConfiguration(classes = {BeanFactory.class})
 public class UserServiceTest {
     @Autowired
     UserService userService;
@@ -155,21 +155,6 @@ public class UserServiceTest {
 
         assertThat(userWithLevelRead.getLevel(), is(userWithLevel.getLevel()));
         assertThat(userWithoutLevelRead.getLevel(), is(Level.BASIC));
-    }
-
-    public static class TestUserServiceImpl extends UserServiceImpl {
-        private String id = "madnite1";
-
-        @Override
-        protected void upgradeLevel(User user) {
-            if (user.getId().equals(this.id)) {
-                throw new TestUserServiceException();
-            }
-            super.upgradeLevel(user);
-        }
-    }
-
-    static class TestUserServiceException extends RuntimeException {
     }
 
     @Test

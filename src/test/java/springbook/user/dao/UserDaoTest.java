@@ -18,7 +18,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
-@ContextConfiguration(classes = {TestBeanFactory.class})
+@ContextConfiguration(classes = {BeanFactory.class})
 public class UserDaoTest {
     @Autowired
     UserDao dao;
