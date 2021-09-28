@@ -1,5 +1,6 @@
 package springbook.user.dao;
 
+import org.springframework.aop.aspectj.AspectJExpressionPointcut;
 import org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator;
 import org.springframework.aop.support.DefaultPointcutAdvisor;
 import org.springframework.aop.support.NameMatchMethodPointcut;
@@ -7,15 +8,18 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.PropertySource;
+import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.SimpleDriverDataSource;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.interceptor.TransactionInterceptor;
 import springbook.user.proxy.NameMatchClassMethodPointcut;
 import springbook.user.service.*;
 
 import javax.sql.DataSource;
+import java.util.Properties;
 
 @SpringBootConfiguration
 @PropertySource("classpath:application-test.properties")
@@ -68,17 +72,21 @@ public class BeanFactory {
     }
 
     @Bean
-    public TransactionAdvice transactionAdvice() {
-        TransactionAdvice transactionAdvice = new TransactionAdvice();
-        transactionAdvice.setTransactionManager(transactionManager());
-        return transactionAdvice;
+    public TransactionInterceptor transactionAdvice() {
+        TransactionInterceptor transactionInterceptor = new TransactionInterceptor();
+        Properties properties = new Properties();
+        properties.put("get*", "PROPAGATION_REQUIRED,readOnly,timeout_30");
+        properties.put("upgrade*", "PROPAGATION_REQUIRES_NEW,ISOLATION_SERIALIZABLE");
+        properties.put("*", "PROPAGATION_REQUIRED");
+        transactionInterceptor.setTransactionAttributes(properties);
+        transactionInterceptor.setTransactionManager(transactionManager());
+        return transactionInterceptor;
     }
 
     @Bean
-    public NameMatchClassMethodPointcut transactionPointcut() {
-        NameMatchClassMethodPointcut pointcut = new NameMatchClassMethodPointcut();
-        pointcut.setMappedClassName("*ServiceImpls");
-        pointcut.setMappedName("upgrade*");
+    public AspectJExpressionPointcut transactionPointcut() {
+        AspectJExpressionPointcut pointcut = new AspectJExpressionPointcut();
+        pointcut.setExpression("execution(* *..*ServiceImpl.upgrade*(..))");
         return pointcut;
     }
 
@@ -101,5 +109,10 @@ public class BeanFactory {
         testUserService.setUserDao(userDao());
         testUserService.setMailSender(mailSender());
         return testUserService;
+    }
+
+    @Bean
+    public static PropertySourcesPlaceholderConfigurer propertySourcesPlaceholderConfigurer() {
+        return new PropertySourcesPlaceholderConfigurer();
     }
 }

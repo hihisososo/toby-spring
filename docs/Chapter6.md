@@ -706,4 +706,168 @@ public class NameMatchClassMethodPointcut extends NameMatchMethodPointcut {
         return userService;
     }
 ```
+* 테스트 해보기 위해서, 기존에 사용하던 TestUserService static class 를 bean 으로 등록하여 프록시가 적용되도록 한다.
+```java
+    @Bean
+    public UserService testUserService(){
+        TestUserServiceImpl testUserService = new TestUserServiceImpl();
+        testUserService.setUserDao(userDao());
+        testUserService.setMailSender(mailSender());
+        return testUserService;
+    }
+```
+* 등록한 TestUserServiceImpl 을 이용하여 테스트 하도록 UserServiceTest 를 아래와 같이 수정한다.
+```java
+public class UserServiceTest {
+    ...
+    @Autowired
+    UserService testUserService;
+    ...
+
+    @Test
+    @DirtiesContext
+    public void upgradeAllOrNothing() throws Exception {
+        ...
+            this.testUserService.upgradeLevels();
+        ...
+    }
+```
+* 테스트 결과 성공을 통해 프록시가 적용되어 트랜잭션이 적용된 것을 확인할 수 있다.
+* 클래스 필터가 프록시 대상을 제대로 선정하고 있는지 확인해보기 위해 일부러 아래와 같이 수정한 후 테스트 해본다.
+```java
+    @Bean
+    public NameMatchClassMethodPointcut transactionPointcut() {
+        NameMatchClassMethodPointcut pointcut = new NameMatchClassMethodPointcut();
+        pointcut.setMappedClassName("*NotServiceImpl");
+        pointcut.setMappedName("upgrade*");
+        return pointcut;
+    }
+```
+* 테스트를 실행하면, upgradeAllOrNothing() 만 실패하므로 프록시 적용이 안된 것을 확인할 수 있다.
+
+<h4>6.5.3 포인트컷 표현식을 이용한 포인트컷</h4>
+* 스프링에서는, 포인트컷 표현식을 이용해서 프록시 적용 대상을 효율적으로 적용할 수 있도록 제공한다
+* 학습 테스트는 아래와 같다.
+```java
+public interface TargetInterface {
+    public void hello();
+    public void hello(String a);
+    public int minus(int a, int b) throws RuntimeException;
+    public int plus(int a, int b);
+}
+```
+```java
+public class Target implements TargetInterface{
+
+    @Override
+    public void hello() {
+
+    }
+
+    @Override
+    public void hello(String a) {
+
+    }
+
+    @Override
+    public int minus(int a, int b) throws RuntimeException {
+        return 0;
+    }
+
+    @Override
+    public int plus(int a, int b) {
+        return 0;
+    }
+
+    public void method() {
+
+    }
+}
+```
+```java
+public class Bean {
+    public void method() throws RuntimeException{}
+}
+```
+
+* 위 인터페이스 및 클래스를 대상으로 포인트컷 표현식을 테스트 해본다.
+* 메소드 시그니처를 통한 포인트컷 표현식 테스트는 아래와 같다.
+```java
+public class PointcutExpressionTest {
+    @Test
+    public void methodSignaturePointcut() throws SecurityException, NoSuchMethodException {
+        AspectJExpressionPointcut pointcut = new AspectJExpressionPointcut();
+        pointcut.setExpression("execution(public int " + "springbook.learningtest.spring.pointcut.Target.minus(int,int)" +
+                "throws java.lang.RuntimeException)");
+
+        // Target.minus()
+        assertThat(pointcut.getClassFilter().matches(Target.class) && pointcut.getMethodMatcher().matches(
+                Target.class.getMethod("minus", int.class, int.class), null), is(true));
+
+        // Target.plus()
+        assertThat(pointcut.getClassFilter().matches(Target.class) && pointcut.getMethodMatcher().matches(Target.class.getMethod("plus", int.class
+                , int.class), null), is(false));
+
+        // Bean.method()
+        assertThat(pointcut.getClassFilter().matches(Bean.class) && pointcut.getMethodMatcher().matches(Target.class.getMethod("method"), null), is(false));
+    }
+}
+```
+* 이제 포인트컷 표현식을 이용하는 포인트컷을 UserServiceImpl 에 적용하면 아래와 같다.
+```java
+    @Bean
+    public AspectJExpressionPointcut transactionPointcut() {
+        AspectJExpressionPointcut pointcut = new AspectJExpressionPointcut();
+        pointcut.setExpression("execution(* *..*ServiceImpl.upgrade*(..))");
+        return pointcut;
+    }
+```
+
+<h4>6.5.4 AOP란 무엇인가?</h4>
+* 전통적인 객체지향의 기술로는 독립 모듈화가 불가능한 트랜잭션 설정과같은 부가기능을 모듈화 한 것을 애스펙트라고 부른다.
+* 부가기능을 애스펙트라는 모듈로 설계하고 개발하는 방법을 AOP 라고 부른다.
+
+<h4>6.5.5 AOP 적용기술</h4>
+* AOP 는 프록시를 통해서만이 아닌, 바이트코드를 조작해서 적용할 수 있다.
+* 바이트코드를 이용하면, 생성자에서 부가기능 제공 등 여러 부가기능을 더 사용할 수 있다.
+
+<h4>6.5.6 AOP의 용어</h4>
+* 타깃 : 부가기능을 부여할 대상
+* 어드바이스 : 부가기능을 담은 모듈
+* 조인 포인트 : 어드바이스가 적용될 수 있는 위치, 스프링의 프록시 AOP 에서는 메소드의 실행단계 뿐
+* 포인트컷 : 어드바이스를 실행할 메소드를 정의한 모듈
+* 프록시 : 부가기능을 제공하는 오브젝트, 클라이언트 메소드 호출을 가로채서, 부가기능을 부여한 뒤 타깃오브젝트의 메소드를 호출해준다.
+* 어드바이저 : 포인트컷 + 어드바이스
+* 애스펙트 : AOP 의 기본 모듈, 한 개 또는 그 이상의 포인트컷과 어드바이스의 조합으로 만들어진다.
+
+<h4>6.5.7 AOP 네임스페이스</h4>
+* 스프링 xml 설정에서는, aop 네임스페이스 추가를 통해 간단하게 AOP 빈 설정을 할 수 있다.
+
+<h3>6.6 트랜잭션 속성</h3>
+<h4>6.6.1 트랜잭션 정의</h4>
+* 트랜잭션에도 아래와 같은 세가지 속성이 존재한다
+    1. PROPAGATION_REQUIRED : 진행중인 트랜잭션이 있으면 참여
+    2. PROPAGATION_REQUIRES_NEW : 항상 새로운 트랜잭션을 시작
+    3. PROPAGATION_NOT_SUPPORTED : 트랜잭션 없이 동작
+* 트랜잭션은 격리 수준을 제공한다 격리 수준은, 최대한 여러개의 트랜잭션을 실행시키기 위해서 조정가능하다
+* 트랜잭션은 제한시간을 설정할 수 있다
+* 트랜잭션은 읽기 전용으로 설정해 둘 수 있다.
+
+<h4>6.6.2 트랜잭션 인터셉터와 트랜잭션 속성</h4>
+* 메소드별로 트랜잭션 속성이 다르게 적용될 수 있을까?
+* 미 스프링에는 TransactionInterceptor 라는 어드바이스가 존재하며, 해당 어드바이스를 이용해 속성을 
+설정할 수 있다.
+```java
+    @Bean
+    public TransactionInterceptor transactionAdvice() {
+        TransactionInterceptor transactionInterceptor = new TransactionInterceptor();
+        Properties properties = new Properties();
+        properties.put("get*", "PROPAGATION_REQUIRED,readOnly,timeout_30");
+        properties.put("upgrade*", "PROPAGATION_REQUIRES_NEW,ISOLATION_SERIALIZABLE");
+        properties.put("*", "PROPAGATION_REQUIRED");
+        transactionInterceptor.setTransactionAttributes(properties);
+        transactionInterceptor.setTransactionManager(transactionManager());
+        return transactionInterceptor;
+    }
+```
 
