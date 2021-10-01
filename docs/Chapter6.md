@@ -855,7 +855,7 @@ public class PointcutExpressionTest {
 
 <h4>6.6.2 트랜잭션 인터셉터와 트랜잭션 속성</h4>
 * 메소드별로 트랜잭션 속성이 다르게 적용될 수 있을까?
-* 미 스프링에는 TransactionInterceptor 라는 어드바이스가 존재하며, 해당 어드바이스를 이용해 속성을 
+* 스프링에는 TransactionInterceptor 라는 어드바이스가 존재하며, 해당 어드바이스를 이용해 속성을 
 설정할 수 있다.
 ```java
     @Bean
@@ -870,4 +870,11 @@ public class PointcutExpressionTest {
         return transactionInterceptor;
     }
 ```
+
+<h4>6.6.3 포인트컷과 트랜잭션 속성의 적용 전략</h4>
+* 포인트컷 표현식과 트랜잭션 속성을 정의할 때 따르면 좋은 몇 가지 전략이 있다.
+1.  포인트컷 표현식은 타입 패턴이나 빈 이름을 이용한다.
+2.  공통된 메소드 이름 규칙을 통해 최소한의 트랜잭션 어드바이스를 정의한다.
+3.  프록시 방식 AOP 는 같은 타깃 오브젝트 내의 메소드를 호출할 때는 적용되지 않는다.
+
 
