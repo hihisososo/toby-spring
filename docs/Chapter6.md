@@ -877,4 +877,125 @@ public class PointcutExpressionTest {
 2.  공통된 메소드 이름 규칙을 통해 최소한의 트랜잭션 어드바이스를 정의한다.
 3.  프록시 방식 AOP 는 같은 타깃 오브젝트 내의 메소드를 호출할 때는 적용되지 않는다. 
 
+<h4>6.6.4 트랜잭션 속성 적용</h4>
+* 트랜잭션 속성은 service 계층에서 보통 적용한다
+* 트랜잭션 속성이 알맞게 적용되기 위해서 다른 Dao 에 접근할 때는 Service 계층을 이용한다
+* UserService 에 UserDao 메소드를 추가하면 아래와 같다.
+```java
+public interface UserService {
+    public void add(User user);
+    User get(String id);
+    List<User> getAll();
+    void deleteAll();
+    void update(User user);
 
+    public void upgradeLevels();
+}
+```
+
+```java
+public class UserServiceImpl implements UserService {
+    ...
+    @Override
+    public User get(String id) {
+        return null;
+    }
+
+    @Override
+    public List<User> getAll() {
+        return null;
+    }
+
+    @Override
+    public void deleteAll() {
+
+    }
+
+    @Override
+    public void update(User user) {
+
+    }
+
+    public void add(User user) {
+        if (user.getLevel() == null) user.setLevel(Level.BASIC);
+        userDao.add(user);
+    }
+```
+* 트랜잭션을 모든 서비스 빈에 적용되도록 아래와 같이 수정한다.
+```java
+    @Bean
+    public AspectJExpressionPointcut transactionPointcut() {
+        AspectJExpressionPointcut pointcut = new AspectJExpressionPointcut();
+        pointcut.setExpression("bean(*Service)");
+        return pointcut;
+    }
+```
+* 읽기 read-only, 그 외는 기본 트랜잭션 속성을 가지도록 설정한다.
+```java
+    @Bean
+    public TransactionInterceptor transactionAdvice() {
+        TransactionInterceptor transactionInterceptor = new TransactionInterceptor();
+        Properties properties = new Properties();
+        properties.put("get*", "PROPAGATION_REQUIRED,readOnly");
+        properties.put("*", "PROPAGATION_REQUIRED");
+        transactionInterceptor.setTransactionAttributes(properties);
+        transactionInterceptor.setTransactionManager(transactionManager());
+        return transactionInterceptor;
+    }
+```
+* 트랜잭션 속성 적용을 테스트해보기 위해 아래와 같이 TestUserService 메소드를 수정한다.
+```java
+public class TestUserService extends UserServiceImpl {
+    ...
+        public List<User> getAll(){
+            for(User user : super.getAll()){
+                super.update(user);
+            }
+            return null;
+        }
+    }
+    ...
+```
+* 테스트도 아래와 같이 추가한다.
+```java
+    @Test
+    public void readOnlyTransactionAttribute(){
+        testUserService.getAll();
+    }
+```
+* transaction 속성 위반 에러가 발생하므로 아래와 같이 expect 에 Exception 을
+추가해주고 테스트를 실행한다.
+```java
+    @Test
+    public void readOnlyTransactionAttribute(){
+        assertThrows(TransientDataAccessResourceException.class, () -> {
+            testUserService.getAll();
+        });
+    }
+```
+
+<h3>6.7 애노테이션 트랜잭션 속성과 포인트컷</h3>
+* 애노테이션을 통해 직접 타깃 오브젝트에 선언하여 사용할 수 있는 트랜잭션 속성 적용 방법을 확인한다.
+
+<h4>6.7.1 트랜잭션 어노테이션</h4>
+* @Transactional 어노테이션을 통해 트랜잭션 속성을 적용할 수 있다
+* 메소드 -> 클래스 -> 인터페이스 단위로 어노테이션을 탐색하여 적용된다.
+
+<h4>6.7.2 트랜잭션 어노테이션 적용</h4>
+* 트랜잭션 어노테이션을 UserService 에 적용해보면 아래와 같다.
+```java
+@Transactional
+public interface UserService {
+    public void add(User user);
+
+    @Transactional(readOnly=true)
+    User get(String id);
+    @Transactional(readOnly=true)
+    List<User> getAll();
+    
+    void deleteAll();
+    void update(User user);
+
+    public void upgradeLevels();
+}
+```

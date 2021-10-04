@@ -2,7 +2,9 @@ package springbook.user.service;
 
 import springbook.user.domain.User;
 
-public class TestUserServiceImpl extends UserServiceImpl {
+import java.util.List;
+
+public class TestUserService extends UserServiceImpl {
         private String id = "madnite1";
 
         @Override
@@ -11,6 +13,14 @@ public class TestUserServiceImpl extends UserServiceImpl {
                 throw new TestUserServiceException();
             }
             super.upgradeLevel(user);
+        }
+
+        @Override
+        public List<User> getAll(){
+            for(User user : super.getAll()){
+                super.update(user);
+            }
+            return null;
         }
     }
 
