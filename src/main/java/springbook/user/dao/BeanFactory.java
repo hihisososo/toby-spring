@@ -43,9 +43,6 @@ public class BeanFactory {
 
     @Bean
     public DataSource dataSource() {
-        System.out.println(datasourceUrl);
-        System.out.println(datasourceUsername);
-        System.out.println(datasourcePassword);
         SimpleDriverDataSource dataSource = new SimpleDriverDataSource();
         dataSource.setDriverClass(org.h2.Driver.class);
         dataSource.setUrl(datasourceUrl);
@@ -101,10 +98,10 @@ public class BeanFactory {
         return defaultPointcutAdvisor;
     }*/
 
-    @Bean
+    /*@Bean
     public DefaultAdvisorAutoProxyCreator defaultAdvisorAutoProxyCreator(){
         return new DefaultAdvisorAutoProxyCreator();
-    }
+    }*/
 
     @Bean
     public UserService testUserService(){
