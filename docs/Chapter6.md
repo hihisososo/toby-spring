@@ -1001,5 +1001,45 @@ public interface UserService {
 * 기존 aop bean 설정을 제거시키고, 위의 어노테이션을 통해 테스트를 돌려봐도 동일한 결과가 나오는 것을 알 수 있다.
 * read-only 는 h2db 에서 제대로 동작하지 않으므로 넘어간다.
 
-<h3>6.7 애노테이션 트랜잭션 속성과 포인트컷</h3>
-* 
+<h3>6.8 트랜잭션 지원 테스트</h3>
+<h4>6.8.1 선언적 트랜잭션과 트랜잭션 전파 속성</h4>
+* 선언적 트랜잭션의 전파 속성을 통해 메소드별로 지정해놓으면, 다른 추가 로직이 도입되더라도 별다른 고려 없이 전파 속성에 의해
+트랜잭션이 시작/종료될 수 있다.
+<h4>6.8.2 트랜잭션 동기화와 테스트</h4>
+* 테스트를 통해서 아래와 같이 코드를 구성했을 때 트랜잭션의 시작/종료는 몇개인가?
+```java
+@Test
+    public void transactionSync(){
+        userService.deleteAll();
+
+        userService.add(users.get(0));
+        userService.add(users.get(1));
+    }
+```
+* 3개인데 하나로 통합할 수 는 없을까?
+* 명시적 선언으로 아래와 같이 한개로 통합할 수 있다.
+```java
+@Test
+    public void transactionSync(){
+        DefaultTransactionDefinition txDefinition = new DefaultTransactionDefinition();
+        TransactionStatus txStatus = transactionManager.getTransaction(txDefinition);
+
+        userService.deleteAll();
+
+        userService.add(users.get(0));
+        userService.add(users.get(1));
+
+        transactionManager.commit(txStatus);
+    }
+```
+<h4>6.8.3 테스트를 위한 어노테이션</h4>
+* 테스트에도 동일하게 @Trasactional 어노테이션을 적용할 수 있다.
+* 기본적으로 테스트에서는 자동으로 롤백되지만, @Rollback(false) 을 통해 롤백이 안되게 할 수 있다.
+
+<h3>6.9 정리</h3>
+* 트랜잭션 경계설정 코드를 DI 를 이용해 따로 분리할 수 있다.
+* 목 오브젝트를 사용하면 의존관게 테스트도 쉽게 구현할 수 있다.
+* DI 를 이용한 트랜잭션의 분리는 데코레이터 패턴과 프록시 패턴으로 이해될 수 있다.
+* 프록시 설정이 반복되는것을 없애기 위해 자동 프록시 생성기와 포인트컷을 활용할 수 있다.
+* AOP 는 OOP 만으로는 모듈화하기 힘든 부가기능을 효과적으로 모듈화하도록 도와주는 기능이다.
+* 어노테이션을 이용해서 트랜잭션 사용 및 적용 방식을 쉽게 적용할 수 있다.

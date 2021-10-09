@@ -15,6 +15,8 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
 import springbook.user.dao.BeanFactory;
 import springbook.user.dao.UserDao;
 import springbook.user.domain.Level;
@@ -49,8 +51,8 @@ public class UserServiceTest {
     @Autowired
     DataSource dataSource;
 
-    /*@Autowired
-    PlatformTransactionManager transactionManager;*/
+    @Autowired
+    PlatformTransactionManager transactionManager;
 
     @Autowired
     MailSender mailSender;
@@ -177,6 +179,20 @@ public class UserServiceTest {
 
         checkLevelUpgraded(users.get(1), false);
     }
+
+    @Test
+    public void transactionSync(){
+        DefaultTransactionDefinition txDefinition = new DefaultTransactionDefinition();
+        TransactionStatus txStatus = transactionManager.getTransaction(txDefinition);
+
+        userService.deleteAll();
+
+        userService.add(users.get(0));
+        userService.add(users.get(1));
+
+        transactionManager.commit(txStatus);
+    }
+
 
     static class MockMailSender implements MailSender {
         private List<String> requests = new ArrayList<String>();
