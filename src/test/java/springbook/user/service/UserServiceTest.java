@@ -49,8 +49,8 @@ public class UserServiceTest {
     @Autowired
     DataSource dataSource;
 
-    @Autowired
-    PlatformTransactionManager transactionManager;
+    /*@Autowired
+    PlatformTransactionManager transactionManager;*/
 
     @Autowired
     MailSender mailSender;
@@ -243,10 +243,4 @@ public class UserServiceTest {
         }
     }
 
-    @Test
-    public void readOnlyTransactionAttribute(){
-        assertThrows(TransientDataAccessResourceException.class, () -> {
-            testUserService.getAll();
-        });
-    }
 }

@@ -18,13 +18,11 @@ import java.util.List;
 public interface UserService {
     public void add(User user);
     void deleteAll();
-    void update(User user);
     public void upgradeLevels();
+    public void update(User user);
 
-    @Transactional(readOnly=true)
+    @Transactional(readOnly = true)
     User get(String id);
-    @Transactional(readOnly=true)
+    @Transactional(readOnly = true)
     public List<User> getAll();
-
-
 }

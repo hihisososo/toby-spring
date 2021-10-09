@@ -987,15 +987,19 @@ public class TestUserService extends UserServiceImpl {
 @Transactional
 public interface UserService {
     public void add(User user);
-
-    @Transactional(readOnly=true)
-    User get(String id);
-    @Transactional(readOnly=true)
-    List<User> getAll();
-    
     void deleteAll();
-    void update(User user);
-
     public void upgradeLevels();
+    public void update(User user);
+
+    @Transactional(readOnly = true)
+    User get(String id);
+    @Transactional(readOnly = true)
+    public List<User> getAll();
 }
 ```
+
+* 기존 aop bean 설정을 제거시키고, 위의 어노테이션을 통해 테스트를 돌려봐도 동일한 결과가 나오는 것을 알 수 있다.
+* read-only 는 h2db 에서 제대로 동작하지 않으므로 넘어간다.
+
+<h3>6.7 애노테이션 트랜잭션 속성과 포인트컷</h3>
+* 

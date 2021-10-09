@@ -69,13 +69,13 @@ public class BeanFactory {
         return userService;
     }
 
-/*    @Bean
+    /*@Bean
     public TransactionInterceptor transactionAdvice() {
         TransactionInterceptor transactionInterceptor = new TransactionInterceptor();
         Properties properties = new Properties();
-        *//*properties.put("", "PROPAGATION_REQUIRED,readOnly");
-        properties.put("", "PROPAGATION_REQUIRED");
-        transactionInterceptor.setTransactionAttributes(source);*//*
+        properties.put("get*", "PROPAGATION_REQUIRED,readOnly");
+        properties.put("*", "PROPAGATION_REQUIRED");
+        transactionInterceptor.setTransactionAttributes(properties);
         AnnotationTransactionAttributeSource source = new AnnotationTransactionAttributeSource();
 
         transactionInterceptor.setTransactionAttributeSource(source);
@@ -96,9 +96,9 @@ public class BeanFactory {
         defaultPointcutAdvisor.setAdvice(transactionAdvice());
         defaultPointcutAdvisor.setPointcut(transactionPointcut());
         return defaultPointcutAdvisor;
-    }*/
+    }
 
-    /*@Bean
+    @Bean
     public DefaultAdvisorAutoProxyCreator defaultAdvisorAutoProxyCreator(){
         return new DefaultAdvisorAutoProxyCreator();
     }*/

@@ -20,7 +20,7 @@ public class UserServiceImpl implements UserService {
 
     private DataSource dataSource;
 
-    private PlatformTransactionManager transactionManager;
+    /*private PlatformTransactionManager transactionManager;*/
 
     private MailSender mailSender;
 
@@ -28,9 +28,9 @@ public class UserServiceImpl implements UserService {
         this.mailSender = mailSender;
     }
 
-    public void setTransactionManager(PlatformTransactionManager transactionManager) {
+    /*public void setTransactionManager(PlatformTransactionManager transactionManager) {
         this.transactionManager = transactionManager;
-    }
+    }*/
 
     public void setDataSource(DataSource dataSource) {
         this.dataSource = dataSource;
