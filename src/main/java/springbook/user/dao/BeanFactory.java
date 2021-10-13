@@ -17,6 +17,8 @@ import org.springframework.transaction.annotation.AnnotationTransactionAttribute
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.interceptor.TransactionInterceptor;
 import springbook.user.service.*;
+import springbook.user.sqlservice.SimpleSqlService;
+import springbook.user.sqlservice.SqlService;
 
 import javax.sql.DataSource;
 import java.util.HashMap;
@@ -37,22 +39,10 @@ public class BeanFactory {
     String datasourcePassword;
 
     @Bean
-    public Map<String, String> sqlMap(){
-        Map<String, String> sqlMap = new HashMap<String, String>();
-        sqlMap.put("add", "insert into users(id, name, password, level, login, recommend, email) values (?,?,?,?,?,?,?)");
-        sqlMap.put("get", "select * from users where id = ?");
-        sqlMap.put("getAll", "select * from users order by id");
-        sqlMap.put("deleteAll", "delete from users");
-        sqlMap.put("getCount", "select count(*) from users");
-        sqlMap.put("update", "update users set name = ?, password = ?, level = ?, login = ?, recommend = ?, email = ? where id = ?");
-        return sqlMap;
-    }
-
-    @Bean
     public UserDao userDao() {
         UserDaoJdbc userDao = new UserDaoJdbc();
         userDao.setDataSource(dataSource());
-        userDao.setSqlMap(sqlMap());
+        userDao.setSqlService(sqlService());
         return userDao;
     }
 
@@ -95,5 +85,24 @@ public class BeanFactory {
     @Bean
     public static PropertySourcesPlaceholderConfigurer propertySourcesPlaceholderConfigurer() {
         return new PropertySourcesPlaceholderConfigurer();
+    }
+
+    @Bean
+    public Map<String, String> sqlMap(){
+        Map<String, String> sqlMap = new HashMap<String, String>();
+        sqlMap.put("add", "insert into users(id, name, password, level, login, recommend, email) values (?,?,?,?,?,?,?)");
+        sqlMap.put("get", "select * from users where id = ?");
+        sqlMap.put("getAll", "select * from users order by id");
+        sqlMap.put("deleteAll", "delete from users");
+        sqlMap.put("getCount", "select count(*) from users");
+        sqlMap.put("update", "update users set name = ?, password = ?, level = ?, login = ?, recommend = ?, email = ? where id = ?");
+        return sqlMap;
+    }
+
+    @Bean
+    public SqlService sqlService(){
+        SimpleSqlService service = new SimpleSqlService();
+        service.setSqlMap(sqlMap());
+        return service;
     }
 }
