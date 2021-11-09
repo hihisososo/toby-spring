@@ -19,6 +19,7 @@ import org.springframework.transaction.interceptor.TransactionInterceptor;
 import springbook.user.service.*;
 import springbook.user.sqlservice.SimpleSqlService;
 import springbook.user.sqlservice.SqlService;
+import springbook.user.sqlservice.XmlSqlService;
 
 import javax.sql.DataSource;
 import java.util.HashMap;
@@ -101,8 +102,7 @@ public class BeanFactory {
 
     @Bean
     public SqlService sqlService(){
-        SimpleSqlService service = new SimpleSqlService();
-        service.setSqlMap(sqlMap());
+        XmlSqlService service = new XmlSqlService();
         return service;
     }
 }
