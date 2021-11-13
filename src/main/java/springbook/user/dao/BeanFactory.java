@@ -39,6 +39,9 @@ public class BeanFactory {
     @Value("${datasource.password}")
     String datasourcePassword;
 
+    @Value("${datasource.sqlfileName}")
+    String sqlfileName;
+
     @Bean
     public UserDao userDao() {
         UserDaoJdbc userDao = new UserDaoJdbc();
@@ -102,7 +105,11 @@ public class BeanFactory {
 
     @Bean
     public SqlService sqlService(){
-        XmlSqlService service = new XmlSqlService();
-        return service;
+        XmlSqlService sqlProvider = new XmlSqlService();
+        sqlProvider.setSqlReader(sqlProvider);
+        sqlProvider.setSqlRegistry(sqlProvider);
+        sqlProvider.setsqlmapFile(sqlfileName);
+        sqlProvider.loadSql();
+        return sqlProvider;
     }
 }

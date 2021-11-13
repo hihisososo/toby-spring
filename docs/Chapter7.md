@@ -487,3 +487,155 @@ public class XmlSqlService implements SqlService {
 ```
 
 <h4>7.2.3 빈의 초기화 작업</h4>
+* 생성자에서 예외가 발생할 수도 있는 복잡한 초기화 작업을 두는 것은 위험함, 별도의 초기 메서드를 구현한다
+* 읽어들일 파일의 위치와 이름이 코드에 고정되어 있다는 점이 유동적이지 않다
+* 해당 부분을 고치면 아래와 같다.
+```java
+public class XmlSqlService implements SqlService {
+    private String sqlmapFile;
+    ...
+
+    public void setsqlmapFile(String sqlmapFile) {
+        this.sqlmapFile = sqlmapFile;
+    }
+
+    public void loadSql() {
+        String contextPath = Sqlmap.class.getPackage().getName();
+        try {
+            JAXBContext context = JAXBContext.newInstance(contextPath);
+            Unmarshaller unmarshaller = context.createUnmarshaller();
+            InputStream is = UserDao.class.getResourceAsStream("/sqlmap.xml");
+            Sqlmap sqlmap = (Sqlmap) unmarshaller.unmarshal(is);
+
+            for (SqlType sql : sqlmap.getSql()) {
+                sqlMap.put(sql.getKey(), sql.getValue());
+            }
+        } catch (JAXBException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+```java
+...
+@Value("${datasource.sqlfileName}")
+String sqlfileName;
+...
+@Bean
+public SqlService sqlService(){
+        XmlSqlService sqlProvider = new XmlSqlService();
+        sqlProvider.setsqlmapFile(sqlfileName);
+        sqlProvider.loadSql();
+        return sqlProvider;
+        }
+...
+```
+
+<h4>7.2.4 변화를 위한 준비: 인터페이스 분리</h4>
+* xml 이 아닌 다양한 파일 포맷에서도 작동하게 만들 수 있도록 인터페이스를 분리한다
+* sql 을 읽는 sqlReader, sqlRegistry 인터페이스를 구현하면 아래와 같다.
+```java
+package springbook.user.sqlservice;
+
+public interface SqlReader {
+    void read(SqlRegistry sqlRegistry);
+}
+
+```
+```java
+package springbook.user.sqlservice;
+
+public interface SqlRegistry {
+    void registerSql(String key, String sql);
+
+    String findSql(String key) throws SqlNotFoundException;
+}
+
+```
+
+<h4>7.2.5 자기참조 빈으로 시작하기</h4>
+* XmlSqlService 에서 이제 SqlRegistry, SqlReader 인터페이스를 DI 받을 수 있도록 수정한다
+* XmlSqlService 는 SqlRegistry, SqlReader 도 구현한 class 로 만든다(자기참조 빈) 이렇게하면
+한 클래스가 마치 빈이 3개 등록된 것처럼 사용할 수 있다.
+```java
+package springbook.user.sqlservice;
+
+import springbook.user.dao.UserDao;
+import springbook.user.sqlservice.jaxb.SqlType;
+import springbook.user.sqlservice.jaxb.Sqlmap;
+
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Unmarshaller;
+import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
+
+public class XmlSqlService implements SqlService, SqlRegistry, SqlReader {
+    private Map<String, String> sqlMap = new HashMap<String, String>();
+    private String sqlmapFile;
+
+    private SqlReader sqlReader;
+    private SqlRegistry sqlRegistry;
+
+    public void setSqlReader(SqlReader sqlReader) {
+        this.sqlReader = sqlReader;
+    }
+
+    public void setSqlRegistry(SqlRegistry sqlRegistry) {
+        this.sqlRegistry = sqlRegistry;
+    }
+
+    public XmlSqlService() {
+        String contextPath = Sqlmap.class.getPackage().getName();
+    }
+
+    public void setsqlmapFile(String sqlmapFile) {
+        this.sqlmapFile = sqlmapFile;
+    }
+
+    public void loadSql() {
+        this.sqlReader.read(this.sqlRegistry);
+    }
+
+    @Override
+    public String getSql(String key) throws SqlRetrievalFailureException {
+        try {
+            return this.sqlRegistry.findSql(key);
+        } catch (SqlNotFoundException e) {
+            throw new SqlRetrievalFailureException(e);
+        }
+    }
+
+    @Override
+    public String findSql(String key) throws SqlNotFoundException {
+        String sql = sqlMap.get(key);
+        if (sql == null) throw new SqlNotFoundException(key + "에 대한 SQL 을 찾을 수 없습니다");
+        else return sql;
+    }
+
+    @Override
+    public void registerSql(String key, String sql) {
+        sqlMap.put(key, sql);
+    }
+
+    @Override
+    public void read(SqlRegistry sqlRegistry) {
+        String contextPath = Sqlmap.class.getPackage().getName();
+        try {
+            JAXBContext context = JAXBContext.newInstance(contextPath);
+            Unmarshaller unmarshaller = context.createUnmarshaller();
+            InputStream is = UserDao.class.getResourceAsStream(sqlmapFile);
+            Sqlmap sqlmap = (Sqlmap) unmarshaller.unmarshal(is);
+
+            for (SqlType sql : sqlmap.getSql()) {
+                sqlRegistry.registerSql(sql.getKey(), sql.getValue());
+            }
+        } catch (JAXBException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+
+```

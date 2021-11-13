@@ -45,27 +45,27 @@ public class UserDaoJdbc implements UserDao {
     }
 
     public void add(final User user) {
-        this.jdbcTemplate.update(this.sqlService.getSql("add"), user.getId(), user.getName(), user.getPassword(), user.getLevel().intValue(), user.getLogin(), user.getRecommend(), user.getEamil());
+        this.jdbcTemplate.update(this.sqlService.getSql("userAdd"), user.getId(), user.getName(), user.getPassword(), user.getLevel().intValue(), user.getLogin(), user.getRecommend(), user.getEamil());
     }
 
     public User get(String id) {
-        return this.jdbcTemplate.queryForObject(this.sqlService.getSql("get"), this.userMapper, new Object[]{id});
+        return this.jdbcTemplate.queryForObject(this.sqlService.getSql("userGet"), this.userMapper, new Object[]{id});
     }
 
     public void deleteAll() {
-        this.jdbcTemplate.update(this.sqlService.getSql("deleteAll"));
+        this.jdbcTemplate.update(this.sqlService.getSql("userDeleteAll"));
     }
 
     public int getCount() {
-        return this.jdbcTemplate.queryForObject(this.sqlService.getSql("getCount"), Integer.class);
+        return this.jdbcTemplate.queryForObject(this.sqlService.getSql("userGetCount"), Integer.class);
     }
 
     public List<User> getAll() {
-        return this.jdbcTemplate.query(this.sqlService.getSql("getAll"), this.userMapper);
+        return this.jdbcTemplate.query(this.sqlService.getSql("userGetAll"), this.userMapper);
     }
 
     public void update(User user) {
-        this.jdbcTemplate.update(this.sqlService.getSql("update"), user.getName(), user.getPassword(), user.getLevel().intValue(), user.getLogin(), user.getRecommend(), user.getEamil(), user.getId());
+        this.jdbcTemplate.update(this.sqlService.getSql("userUpdate"), user.getName(), user.getPassword(), user.getLevel().intValue(), user.getLogin(), user.getRecommend(), user.getEamil(), user.getId());
     }
 
     public void createTable() {
