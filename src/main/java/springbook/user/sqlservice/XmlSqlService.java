@@ -65,7 +65,6 @@ public class XmlSqlService implements SqlService, SqlRegistry, SqlReader {
         try {
             JAXBContext context = JAXBContext.newInstance(contextPath);
             Unmarshaller unmarshaller = context.createUnmarshaller();
-            System.out.println("[DD]"  + sqlmapFile);
             InputStream is = UserDao.class.getResourceAsStream(sqlmapFile);
             Sqlmap sqlmap = (Sqlmap) unmarshaller.unmarshal(is);
 

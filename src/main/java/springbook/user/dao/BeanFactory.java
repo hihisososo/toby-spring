@@ -1,9 +1,5 @@
 package springbook.user.dao;
 
-import org.h2.mvstore.tx.Transaction;
-import org.springframework.aop.aspectj.AspectJExpressionPointcut;
-import org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator;
-import org.springframework.aop.support.DefaultPointcutAdvisor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -13,18 +9,17 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.SimpleDriverDataSource;
 import org.springframework.mail.MailSender;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
-import org.springframework.transaction.interceptor.TransactionInterceptor;
-import springbook.user.service.*;
-import springbook.user.sqlservice.SimpleSqlService;
+import springbook.user.service.DummyMailSender;
+import springbook.user.service.TestUserService;
+import springbook.user.service.UserService;
+import springbook.user.service.UserServiceImpl;
+import springbook.user.sqlservice.DefaultSqlService;
 import springbook.user.sqlservice.SqlService;
-import springbook.user.sqlservice.XmlSqlService;
 
 import javax.sql.DataSource;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
 
 @SpringBootConfiguration
 @PropertySource("classpath:application-test.properties")
@@ -79,7 +74,7 @@ public class BeanFactory {
     }
 
     @Bean
-    public UserService testUserService(){
+    public UserService testUserService() {
         TestUserService testUserService = new TestUserService();
         testUserService.setUserDao(userDao());
         testUserService.setMailSender(mailSender());
@@ -92,7 +87,7 @@ public class BeanFactory {
     }
 
     @Bean
-    public Map<String, String> sqlMap(){
+    public Map<String, String> sqlMap() {
         Map<String, String> sqlMap = new HashMap<String, String>();
         sqlMap.put("add", "insert into users(id, name, password, level, login, recommend, email) values (?,?,?,?,?,?,?)");
         sqlMap.put("get", "select * from users where id = ?");
@@ -104,11 +99,15 @@ public class BeanFactory {
     }
 
     @Bean
-    public SqlService sqlService(){
-        XmlSqlService sqlProvider = new XmlSqlService();
-        sqlProvider.setSqlReader(sqlProvider);
-        sqlProvider.setSqlRegistry(sqlProvider);
-        sqlProvider.setsqlmapFile(sqlfileName);
+    public SqlService sqlService() {
+        /*BaseSqlService sqlProvider = new BaseSqlService();
+        JaxbXmlSqlReader sqlReader = new JaxbXmlSqlReader();
+        sqlReader.setSqlmapFile(sqlfileName);
+        HashMapSqlRegistry sqlRegistry = new HashMapSqlRegistry();
+        sqlProvider.setSqlReader(sqlReader);
+        sqlProvider.setSqlRegistry(sqlRegistry);
+        sqlProvider.loadSql();*/
+        DefaultSqlService sqlProvider = new DefaultSqlService();
         sqlProvider.loadSql();
         return sqlProvider;
     }

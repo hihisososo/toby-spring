@@ -639,3 +639,119 @@ public class XmlSqlService implements SqlService, SqlRegistry, SqlReader {
 }
 
 ```
+
+<h4>7.2.6 디폴트 의존관계</h4>
+* DI 된 SqlRegistry, SqlReader 를 이용하여 사용하는 기본적인 Service 를 생성해보면 아래와 같다.
+```java
+public class BaseSqlService implements SqlService {
+    protected SqlReader sqlReader;
+    protected SqlRegistry sqlRegistry;
+
+    public void setSqlReader(SqlReader sqlReader) {
+        this.sqlReader = sqlReader;
+    }
+
+    public void setSqlRegistry(SqlRegistry sqlRegistry) {
+        this.sqlRegistry = sqlRegistry;
+    }
+
+    public void loadSql() {
+        this.sqlReader.read(this.sqlRegistry);
+    }
+
+
+    @Override
+    public String getSql(String key) throws SqlRetrievalFailureException {
+        try {
+            return this.sqlRegistry.findSql(key);
+        } catch (SqlNotFoundException e) {
+            throw new SqlRetrievalFailureException(e);
+        }
+    }
+}
+```
+* XmlSqlService 에서 사용하던 SqlRegistry 및 SqlReader 를 분리해서 클래스화 하면 아래와 같다.
+```java
+public class HashMapSqlRegistry implements SqlRegistry {
+    private Map<String, String> sqlMap = new HashMap<String, String>();
+
+    public String findSql(String key) throws SqlNotFoundException {
+        String sql = sqlMap.get(key);
+        if (sql == null)
+            throw new SqlNotFoundException(key + "를 이용해서 SQL을 찾을 수 없습니다");
+        else return sql;
+    }
+
+    public void registerSql(String key, String sql) {
+        sqlMap.put(key, sql);
+    }
+}
+
+```
+```java
+public class JaxbXmlSqlReader implements SqlReader {
+    private String sqlmapFile;
+
+    public void setSqlmapFile(String sqlmapFile) {
+        this.sqlmapFile = sqlmapFile;
+    }
+
+    @Override
+    public void read(SqlRegistry sqlRegistry) {
+        String contextPath = Sqlmap.class.getPackage().getName();
+        try {
+            JAXBContext context = JAXBContext.newInstance(contextPath);
+            Unmarshaller unmarshaller = context.createUnmarshaller();
+            InputStream is = UserDao.class.getResourceAsStream(sqlmapFile);
+            Sqlmap sqlmap = (Sqlmap) unmarshaller.unmarshal(is);
+
+            for (SqlType sql : sqlmap.getSql()) {
+                sqlRegistry.registerSql(sql.getKey(), sql.getValue());
+            }
+        } catch (JAXBException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+* 해당 클래스들을 이용해서 Bean 설정을 변경하면 아래와 같다.
+```java
+    @Bean
+    public SqlService sqlService() {
+        BaseSqlService sqlProvider = new BaseSqlService();
+        JaxbXmlSqlReader sqlReader = new JaxbXmlSqlReader();
+        sqlReader.setSqlmapFile(sqlfileName);
+        HashMapSqlRegistry sqlRegistry = new HashMapSqlRegistry();
+        sqlProvider.setSqlReader(sqlReader);
+        sqlProvider.setSqlRegistry(sqlRegistry);
+        sqlProvider.loadSql();
+        return sqlProvider;
+    }
+```
+* DI 를 통하지 않고 기본적으로 사용할 SqlReader, SqlRegistry 를 정의할 수도 있다.
+* 생성자를 통해 정의하면 아래와 같다.
+```java
+public class DefaultSqlService extends BaseSqlService {
+    public DefaultSqlService() {
+        setSqlReader(new JaxbXmlSqlReader());
+        setSqlRegistry(new HashMapSqlRegistry());
+    }
+}
+```
+* 해당 빈을 등록하고 test 를 실행해보면 에러가 난다, xml 파일 경로를 set 해주지 않았기 때문이다.
+설정하지 않고 기본적으로 사용할 Class 를 정의했는데 설정파일을 통해 sql 파일명을 주입해주는 것은 의도에 맞지 않으므로
+  Default sql 파일 이름을 아래와 같이 지정해준다.
+ ```java
+public class JaxbXmlSqlReader implements SqlReader {
+    private static final String DEFAULT_SQLMAP_FILE = "/sqlmap.xml";
+
+    private String sqlmapFile = DEFAULT_SQLMAP_FILE;
+
+    public void setSqlmapFile(String sqlmapFile) {
+        this.sqlmapFile = sqlmapFile;
+    }
+    ...
+```
+* DefaultSqlService 설정 후 테스트를 돌려보면 성공한다, 일련의 과정을 통해 설정파일 간소화 및 확장 구현이 가능한 설계가 되었다.
+
+<h3>7.3 서비스 추상화 적용</h3>
