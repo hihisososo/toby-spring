@@ -755,3 +755,10 @@ public class JaxbXmlSqlReader implements SqlReader {
 * DefaultSqlService 설정 후 테스트를 돌려보면 성공한다, 일련의 과정을 통해 설정파일 간소화 및 확장 구현이 가능한 설계가 되었다.
 
 <h3>7.3 서비스 추상화 적용</h3>
+<h4>7.3.1 OXM 서비스 추상화</h4>
+* XML <-> Object 상호 변환 기술을 OXM 이라고 한다.
+* 스프링에서 사용하는 OXM 추상화 기술은 Marshaller, UnMashaller 인터페이스를 포함한다
+* 학습 테스트를 만들어보면 아래와 같다.
+```java
+
+```
