@@ -760,5 +760,39 @@ public class JaxbXmlSqlReader implements SqlReader {
 * 스프링에서 사용하는 OXM 추상화 기술은 Marshaller, UnMashaller 인터페이스를 포함한다
 * 학습 테스트를 만들어보면 아래와 같다.
 ```java
+    @Bean
+    public Unmarshaller unmarshaller(){
+        Jaxb2Marshaller unMarshaller = new Jaxb2Marshaller();
+        unMarshaller.setContextPath("springbook.user.sqlservice.jaxb");
+        return unMarshaller;
+    }
+```
+```java
+@SpringBootTest
+@ContextConfiguration(classes = {BeanFactory.class})
+public class OxmTest {
+    @Autowired
+    Unmarshaller unmarshaller;
+
+    @Test
+    public void unmarshallSqlMap() throws XmlMappingException, IOException, JAXBException {
+        Source xmlSource = new StreamSource(getClass().getResourceAsStream("/sqlmap.xml"));
+
+        Sqlmap sqlmap = (Sqlmap) this.unmarshaller.unmarshal(xmlSource);
+
+        List<SqlType> sqlList = sqlmap.getSql();
+
+        assertThat(sqlList.size(), is(6));
+        assertThat(sqlList.get(0).getKey(), is("userAdd"));
+    }
+
+}
+```
+* Unmarshaller 인터페이스를 통해 Jaxb 와의 결합이 추상화 되었다
+
+<h4>7.3.2 OXM 서비스 추상화 적용</h4>
+* OxmSqlService 를 생성해서 적용할 수 있도록 한다, SqlReader 클래스를 OxmSqlService 의 내부 스태틱 클래스로
+선언하여 응집도를 높인다.
+```java
 
 ```

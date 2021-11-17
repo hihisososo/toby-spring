@@ -1,5 +1,7 @@
 package springbook.user.dao;
 
+import org.aspectj.lang.annotation.Before;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,8 +29,11 @@ public class UserDaoTest {
     private User user2;
     private User user3;
 
+
+
     @BeforeEach
     public void setUp() {
+        dao.createTable();
         this.user1 = new User("gyumee", "박성철", "springno1", Level.BASIC, 1, 0,"hihisososo@naver.com");
         this.user2 = new User("leegw700", "이길원", "springno2", Level.SILVER, 55, 10,"test@dqdqdq.com");
         this.user3 = new User("bumjin", "박범진", "springno3", Level.GOLD, 100, 40,"test@dqdqdq.com");

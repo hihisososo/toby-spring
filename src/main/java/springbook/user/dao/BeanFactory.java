@@ -8,6 +8,7 @@ import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.SimpleDriverDataSource;
 import org.springframework.mail.MailSender;
+import org.springframework.oxm.Unmarshaller;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
@@ -19,7 +20,6 @@ import springbook.user.sqlservice.DefaultSqlService;
 import springbook.user.sqlservice.SqlService;
 
 import javax.sql.DataSource;
-import javax.xml.bind.Unmarshaller;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -116,8 +116,8 @@ public class BeanFactory {
 
     @Bean
     public Unmarshaller unmarshaller(){
-        Jaxb2Marshaller unmaMarshaller = new Jaxb2Marshaller();
-        unmaMarshaller.setContextPath(ja);
-
+        Jaxb2Marshaller unMarshaller = new Jaxb2Marshaller();
+        unMarshaller.setContextPath("springbook.user.sqlservice.jaxb");
+        return unMarshaller;
     }
 }
