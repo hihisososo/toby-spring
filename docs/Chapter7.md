@@ -794,5 +794,173 @@ public class OxmTest {
 * OxmSqlService 를 생성해서 적용할 수 있도록 한다, SqlReader 클래스를 OxmSqlService 의 내부 스태틱 클래스로
 선언하여 응집도를 높인다.
 ```java
+public class OxmSqlService implements SqlService {
+    private final OxmSqlReader oxmSqlReader = new OxmSqlReader();
+
+    private SqlRegistry sqlRegistry = new HashMapSqlRegistry();
+
+    public void setSqlRegistry(SqlRegistry sqlRegistry) {
+        this.sqlRegistry = sqlRegistry;
+    }
+
+    public void setUnmarShaller(Unmarshaller unmarshaller) {
+        this.oxmSqlReader.setUnmarshaller(unmarshaller);
+    }
+
+    public void setSqlmapFile(String sqlmapFile) {
+        this.oxmSqlReader.setSqlmapFile(sqlmapFile);
+    }
+
+    public void loadSql() {
+        this.oxmSqlReader.read(this.sqlRegistry);
+    }
+
+    public String getSql(String key) throws SqlRetrievalFailureException {
+        try {
+            return this.sqlRegistry.findSql(key);
+        } catch (SqlNotFoundException e) {
+            throw new SqlRetrievalFailureException(e);
+        }
+    }
+
+    private class OxmSqlReader implements SqlReader {
+        private Unmarshaller unmarshaller;
+        private final static String DEFAULT_SQLMAP_FILE = "/sqlmap.xml";
+        private String sqlmapFile = DEFAULT_SQLMAP_FILE;
+
+        public void setUnmarshaller(Unmarshaller unmarshaller) {
+            this.unmarshaller = unmarshaller;
+        }
+
+        public void setSqlmapFile(String sqlmapFile) {
+            this.sqlmapFile = sqlmapFile;
+        }
+
+        @Override
+        public void read(SqlRegistry sqlRegistry) {
+            try {
+                Source source = new StreamSource(UserDao.class.getResourceAsStream(this.sqlmapFile));
+                Sqlmap sqlmap = (Sqlmap) this.unmarshaller.unmarshal(source);
+
+                for (SqlType sql : sqlmap.getSql()) {
+                    sqlRegistry.registerSql(sql.getKey(), sql.getValue());
+                }
+            } catch (IOException e) {
+                throw new IllegalArgumentException(this.sqlmapFile + "을 가져올 수 없습니다.");
+            }
+        }
+    }
+}
 
 ```
+```java
+   @Bean
+    public SqlService sqlService() {
+        OxmSqlService sqlProvider = new OxmSqlService();
+        sqlProvider.setUnmarShaller(unmarshaller());
+        sqlProvider.loadSql();
+        return sqlProvider;
+    }
+
+    @Bean
+    public Unmarshaller unmarshaller(){
+        Jaxb2Marshaller unMarshaller = new Jaxb2Marshaller();
+        unMarshaller.setContextPath("springbook.user.sqlservice.jaxb");
+        return unMarshaller;
+    }
+```
+
+* BaseSqlService 와 OxmSqlService 의 getSql() 매서드가 중복된다.
+현재는 간단한 코드이지만 나중을 위해 중복 코드를 줄이는 방법은, OxmSqlService -> BaseSqlService 로 
+  동작을 위힘하는 것이다. 위임하도록 수정하면 아래와 같다.
+```java
+   public void loadSql() {
+        this.baseSqlService.setSqlReader(this.oxmSqlReader);
+        this.baseSqlService.setSqlRegistry(this.sqlRegistry);
+
+        this.baseSqlService.loadSql();
+    }
+
+    public String getSql(String key) throws SqlRetrievalFailureException {
+        try {
+            return this.baseSqlService.getSql(key);
+        } catch (SqlNotFoundException e) {
+            throw new SqlRetrievalFailureException(e);
+        }
+    }
+```  
+
+<h4>7.3.3 리소스 추상화</h4>
+* sql 파일을 읽어오는 부분은, 파일이 될 수도 있고, http 등 여러 가지가 존재한다
+* Spring 에서는 이 부분을 추상화하기 위해서 Resource 클래스를 제공한다. 사용하도록 수정하면 아래와 같다.
+```java
+public class OxmSqlService implements SqlService {
+    ...
+    public void setSqlmap(Resource sqlmap) {
+        this.oxmSqlReader.setSqlmap(sqlmap);
+    }
+    ...
+    private class OxmSqlReader implements SqlReader {
+        private Unmarshaller unmarshaller;
+        private final static String DEFAULT_SQLMAP_FILE = "/sqlmap.xml";
+        private Resource sqlmap = new ClassPathResource("/sqlmap.xml", UserDao.class);
+        ...
+        public void setSqlmap(Resource sqlmap) {
+            this.sqlmap = sqlmap;
+        }
+
+        @Override
+        public void read(SqlRegistry sqlRegistry) {
+            try {
+                Source source = new StreamSource(sqlmap.getInputStream());
+                Sqlmap sqlmap = (Sqlmap) this.unmarshaller.unmarshal(source);
+                ...
+```
+```java
+@Bean
+    public SqlService sqlService() {
+        OxmSqlService sqlProvider = new OxmSqlService();
+        sqlProvider.setUnmarShaller(unmarshaller());
+        sqlProvider.setSqlmap(new ClassPathResource("/sqlmap.xml"));
+        sqlProvider.loadSql();
+        return sqlProvider;
+    }
+```
+
+<h3>7.4 인터페이스 상속을 통한 안전한 기능확장</h3>
+* 운영중 sql 이 실시간으로 reload 되어야 할 경우에 대해 구현해본다
+
+<h4>7.4.1 DI와 기능의 확장</h4>
+* 스프링을 통해 DI 를 구현하는 것은 아주 쉬운 일이나, 프로그램 설계 시 DI 를 고려하여
+설계하는 것은 많은 경험, 공부가 필요하다
+* DI 가 필요한 이유 또 하나로는 클래스 상속과는 다르게 인터페이스를 통해 같은 클래스라도
+클라이언트에 따라 여러가지 인터페이스를 제공해 줄 수 있기 떄문이다. 클래스를 통해 구현하면
+이와 같은 제공은 불가능하다.
+ 
+<h4>7.4.2 인터페이스 상속</h4>
+* 업데이트 가능한 기능을 제공하기 위해 기존 SqlRegistry 를 상속해서 인터페이스를 구현한다.
+```java
+public interface UpdatableSqlRegistry extends SqlRegistry {
+    public void updateSql(String key, String sql) throws SqlUpdateFailureException;
+
+    public void updateSql(Map<String,String> sqlmap) throws SqlUpdateFailureException;
+}
+```
+* 해당 인터페이스는 업데이트가 필요한 Service 에서만 사용하도록 주입해 줄 수 있다.
+* 아래와 같이 SqlAdminService 에 사용되도록 주입될 수 있다.
+```java
+public class SqlAdminService implements AdminEventListener{
+    private UpdatableSqlRegistry updatableSqlRegistry;
+
+    public void setUpdatableSqlRegistry(UpdatableSqlRegistry updatableSqlRegistry){
+        this.updatableSqlRegistry = updatableSqlRegistry;
+    }
+
+    public void updateEventListener(UpdateEvent event){
+        this.updatableSqlRegistry.updateSql(event.get(KEY_ID), event.get(EVENT_ID));
+    }
+}
+```
+
+<h3>7.5 DI를 이용해 다양한 구현 방법 적용하기</h3>
+<h4>7.5.1 ConcurrentHashMap을 이용한 수정 가능 SQL 레지스트리</h4>

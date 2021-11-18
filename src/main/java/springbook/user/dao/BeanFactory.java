@@ -5,6 +5,7 @@ import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.SimpleDriverDataSource;
 import org.springframework.mail.MailSender;
@@ -17,6 +18,8 @@ import springbook.user.service.TestUserService;
 import springbook.user.service.UserService;
 import springbook.user.service.UserServiceImpl;
 import springbook.user.sqlservice.DefaultSqlService;
+import springbook.user.sqlservice.OxmSqlService;
+import springbook.user.sqlservice.SqlRegistry;
 import springbook.user.sqlservice.SqlService;
 
 import javax.sql.DataSource;
@@ -102,14 +105,9 @@ public class BeanFactory {
 
     @Bean
     public SqlService sqlService() {
-        /*BaseSqlService sqlProvider = new BaseSqlService();
-        JaxbXmlSqlReader sqlReader = new JaxbXmlSqlReader();
-        sqlReader.setSqlmapFile(sqlfileName);
-        HashMapSqlRegistry sqlRegistry = new HashMapSqlRegistry();
-        sqlProvider.setSqlReader(sqlReader);
-        sqlProvider.setSqlRegistry(sqlRegistry);
-        sqlProvider.loadSql();*/
-        DefaultSqlService sqlProvider = new DefaultSqlService();
+        OxmSqlService sqlProvider = new OxmSqlService();
+        sqlProvider.setUnmarShaller(unmarshaller());
+        sqlProvider.setSqlmap(new ClassPathResource("/sqlmap.xml"));
         sqlProvider.loadSql();
         return sqlProvider;
     }
