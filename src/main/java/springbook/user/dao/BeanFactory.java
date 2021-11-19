@@ -8,6 +8,8 @@ import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.SimpleDriverDataSource;
+import org.springframework.jdbc.datasource.embedded.EmbeddedDatabase;
+import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
 import org.springframework.mail.MailSender;
 import org.springframework.oxm.Unmarshaller;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
@@ -17,14 +19,14 @@ import springbook.user.service.DummyMailSender;
 import springbook.user.service.TestUserService;
 import springbook.user.service.UserService;
 import springbook.user.service.UserServiceImpl;
-import springbook.user.sqlservice.DefaultSqlService;
-import springbook.user.sqlservice.OxmSqlService;
-import springbook.user.sqlservice.SqlRegistry;
-import springbook.user.sqlservice.SqlService;
+import springbook.user.sqlservice.*;
+import springbook.user.sqlservice.updatable.EmbeddedDbSqlRegistry;
 
 import javax.sql.DataSource;
 import java.util.HashMap;
 import java.util.Map;
+
+import static org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType.H2;
 
 @SpringBootConfiguration
 @PropertySource("classpath:application-test.properties")
@@ -108,6 +110,7 @@ public class BeanFactory {
         OxmSqlService sqlProvider = new OxmSqlService();
         sqlProvider.setUnmarShaller(unmarshaller());
         sqlProvider.setSqlmap(new ClassPathResource("/sqlmap.xml"));
+        sqlProvider.setSqlRegistry(embeddedDbSqlRegistry());
         sqlProvider.loadSql();
         return sqlProvider;
     }
@@ -118,4 +121,28 @@ public class BeanFactory {
         unMarshaller.setContextPath("springbook.user.sqlservice.jaxb");
         return unMarshaller;
     }
+
+    @Bean
+    public SqlRegistry sqlRegistry(){
+        return new ConcurrentHashMapRegistry();
+    }
+
+    @Bean
+    public EmbeddedDatabase embeddedDatabase(){
+        EmbeddedDatabase db = new EmbeddedDatabaseBuilder()
+                .setType(H2)
+                .addScript("/schema.sql")
+                .addScript("/data.sql")
+                .build();
+        return db;
+    }
+
+    @Bean
+    public EmbeddedDbSqlRegistry embeddedDbSqlRegistry(){
+        EmbeddedDbSqlRegistry sqlRegistry = new EmbeddedDbSqlRegistry();
+        sqlRegistry.setDataSource(embeddedDatabase());
+        return sqlRegistry;
+    }
+
+
 }

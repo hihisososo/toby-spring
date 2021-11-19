@@ -964,3 +964,195 @@ public class SqlAdminService implements AdminEventListener{
 
 <h3>7.5 DI를 이용해 다양한 구현 방법 적용하기</h3>
 <h4>7.5.1 ConcurrentHashMap을 이용한 수정 가능 SQL 레지스트리</h4>
+* 멀티쓰레드 동기화 관련해서 좋은 성능을 제공하는 ConcurrentHashMap을 이용해서 sqlmap 을 제공해본다
+* 테스트 부터 생성해보면 아래와 같다
+```java
+public class ConcurrentHashMapRegistryTest {
+    UpdatableSqlRegistry sqlRegistry;
+
+    @BeforeAll
+    public void setUp() {
+        sqlRegistry = new ConcurrentHashMapRegistry();
+        sqlRegistry.registerSql("KEY1", "SQL1");
+        sqlRegistry.registerSql("KEY2", "SQL2");
+        sqlRegistry.registerSql("KEY3", "SQL3");
+    }
+
+    @Test
+    public void find() {
+        checkFindResult("SQL1", "SQL2", "SQL3");
+
+    }
+
+    private void checkFindResult(String expected1, String expected2, String expected3) {
+        assertThat(sqlRegistry.findSql("KEY1"), is(expected1));
+        assertThat(sqlRegistry.findSql("KEY2"), is(expected2));
+        assertThat(sqlRegistry.findSql("KEY3"), is(expected3));
+    }
+
+    @Test
+    public void unknownKey() {
+        assertThrows(SqlNotFoundException.class, () -> {
+            sqlRegistry.findSql("SQL9999!@#$");
+        });
+    }
+
+    @Test
+    public void updateSingle() {
+        sqlRegistry.updateSql("KEY2", "Modified2");
+        checkFindResult("SQL1", "Modified2", "SQL3");
+    }
+
+    @Test
+    public void updateMulti() {
+        Map<String, String> sqlmap = new HashMap<>();
+        sqlmap.put("KEY1", "Modified1");
+        sqlmap.put("KEY3", "Modified3");
+
+        sqlRegistry.updateSql(sqlmap);
+        checkFindResult("Modified1", "SQL2", "Modified3");
+    }
+
+    @Test
+    public void updateWithNotExistingKey() {
+        assertThrows(SqlUpdateFailureException.class, () -> {
+            sqlRegistry.updateSql("SQL9999!@#$", "Modified2");
+        });
+    }
+}
+
+```
+* ConcurrentHashMapRegistry 구현하면 아래와 같다.
+```java
+public class ConcurrentHashMapRegistry implements UpdatableSqlRegistry {
+    ConcurrentHashMap<String, String> sqlMap = new ConcurrentHashMap<>();
+
+    @Override
+    public String findSql(String key) throws SqlNotFoundException {
+        String sql = sqlMap.get(key);
+        if (sql == null) {
+            throw new SqlNotFoundException(key + " 를 이용해서 SQL 을 찾을 수 없습니다.");
+        } else return sql;
+    }
+
+    @Override
+    public void registerSql(String key, String sql) {
+        sqlMap.put(key, sql);
+    }
+
+    @Override
+    public void updateSql(String key, String sql) throws SqlUpdateFailureException {
+        if (sqlMap.get(key) == null) {
+            throw new SqlUpdateFailureException(key + " 에 해당하는 SQL을 찾을 수 없습니다.");
+        }
+
+        sqlMap.put(key, sql);
+    }
+
+    @Override
+    public void updateSql(Map<String, String> sqlmap) throws SqlUpdateFailureException {
+        for (Map.Entry<String, String> entry : sqlmap.entrySet()) {
+            updateSql(entry.getKey(), entry.getValue());
+        }
+    }
+}
+```
+
+<h4>7.5.2 내장형 데이터베이스를 이용한 SQL 레지스트리 만들기</h4>
+* SqlRegistry 를 구현하기 위해 내장형 DB 를 사용할 수 도 있다.
+* 스프링에서 제공하는 내장형 DB 를 테스트 해보기 위해 우선 초기 sql 파일을 만든다.
+```sql
+CREATE TABLE SQLMAP(
+    KEY_ VARCHAR(100) PRIMARY KEY,
+    SQL_ VARCHAR(100) NOT NULL
+);
+```
+```sql
+INSERT INTO SQLMAP(KEY_, SQL_) values ('KEY1', 'SQL1');
+INSERT INTO SQLMAP(KEY_, SQL_) values ('KEY2', 'SQL2');
+```
+* 초기 SQL 파일은 구성되었으니 스프링에서 제공하는 EmbeddedDatabaseBuilder 를 이용한 내장형 DB
+사용 학습 테스트를 만들면 아래와 같다.
+```java
+public class EmbeddedDbTest {
+  static EmbeddedDatabase db;
+  static JdbcTemplate template;
+
+  @BeforeAll
+  public static void setUp() {
+    db = new EmbeddedDatabaseBuilder()
+            .setType(H2)
+            .addScript("/schema.sql")
+            .addScript("/data.sql")
+            .build();
+    template = new JdbcTemplate(db);
+  }
+
+  @AfterAll
+  public static void tearDown() {
+    db.shutdown();
+  }
+
+  @Test
+  public void initData() {
+    assertThat(template.queryForObject("select count(*) from sqlmap", Integer.class), is(2));
+
+    List<Map<String, Object>> list = template.queryForList("select * from sqlmap order by key_");
+    assertThat((String) list.get(0).get("key_"), is("KEY1"));
+    assertThat((String) list.get(0).get("sql_"), is("SQL1"));
+    assertThat((String) list.get(1).get("key_"), is("KEY2"));
+    assertThat((String) list.get(1).get("sql_"), is("SQL2"));
+  }
+    
+  @Test
+  public void insert() {
+    template.update("insert into sqlmap(key_, sql_) values(?,?)", "KEY3", "SQL3");
+
+    assertThat(template.queryForObject("select count(*) from sqlmap", Integer.class), is(3));
+  }
+}
+```  
+* 실제 SqlResigtry 에 적용하면 아래와 같다.
+```java
+public class EmbeddedDbSqlRegistry implements UpdatableSqlRegistry {
+    JdbcTemplate jdbc;
+
+    public void setDataSource(DataSource dataSource) {
+        jdbc = new JdbcTemplate(dataSource);
+    }
+
+    @Override
+    public void registerSql(String key, String sql) {
+        jdbc.update("insert into sqlmap(key_, sql_) values(?,?)", key, sql);
+    }
+
+    @Override
+    public String findSql(String key) throws SqlNotFoundException {
+        try {
+            return this.jdbc.queryForObject("select sql_ from sqlmap where key_ = ?", String.class, key);
+        } catch (EmptyResultDataAccessException e) {
+            throw new SqlNotFoundException(key + "에 해당하는 SQL을 찾을 수 없습니다.", e);
+
+        }
+    }
+
+    @Override
+    public void updateSql(String key, String sql) throws SqlUpdateFailureException {
+        int affected = jdbc.update("update sqlmap set sql_ = ? where key_ = ?", sql, key);
+        if (affected == 0) {
+            throw new SqlUpdateFailureException(key + "에 해당하는 SQL을 찾을 수 없습니다.");
+        }
+    }
+
+    @Override
+    public void updateSql(Map<String, String> sqlmap) throws SqlUpdateFailureException {
+        for (Map.Entry<String, String> entry : sqlmap.entrySet()) {
+            updateSql(entry.getKey(), entry.getValue());
+        }
+    }
+}
+
+```
+* EmbeddedDbSqlRegistry 에 대한 테스트는 기존의 ConcurrentHashMapSqlRegistry 와 인터페이스가
+겹치므로, 테스트 코드를 아래와 같이 상속하여 사용한다.
+  
