@@ -69,7 +69,7 @@ public class UserDaoJdbc implements UserDao {
     }
 
     public void createTable() {
-        this.jdbcTemplate.update("drop table users");
+        this.jdbcTemplate.update("drop table users if exists");
         this.jdbcTemplate.update("CREATE TABLE users ( id varchar(100), name varchar(100), password varchar(100), level int(9), login int(9), recommend int(9), email varchar(100));");
     }
 }

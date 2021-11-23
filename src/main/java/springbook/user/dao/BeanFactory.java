@@ -132,7 +132,6 @@ public class BeanFactory {
         EmbeddedDatabase db = new EmbeddedDatabaseBuilder()
                 .setType(H2)
                 .addScript("/schema.sql")
-                .addScript("/data.sql")
                 .build();
         return db;
     }

@@ -1155,4 +1155,135 @@ public class EmbeddedDbSqlRegistry implements UpdatableSqlRegistry {
 ```
 * EmbeddedDbSqlRegistry 에 대한 테스트는 기존의 ConcurrentHashMapSqlRegistry 와 인터페이스가
 겹치므로, 테스트 코드를 아래와 같이 상속하여 사용한다.
-  
+```java
+public abstract class AbstractUpdatableSqlRegistryTest {
+    UpdatableSqlRegistry sqlRegistry;
+
+
+    @BeforeEach
+    public void setUp(){
+        sqlRegistry = createUpdatableSqlRegistry();
+        sqlRegistry.registerSql("KEY1", "SQL1");
+        sqlRegistry.registerSql("KEY2", "SQL2");
+        sqlRegistry.registerSql("KEY3", "SQL3");
+    }
+
+    abstract protected UpdatableSqlRegistry createUpdatableSqlRegistry();
+
+    @Test
+    public void find() {
+        checkFindResult("SQL1", "SQL2", "SQL3");
+
+    }
+
+    protected void checkFindResult(String expected1, String expected2, String expected3) {
+        assertThat(sqlRegistry.findSql("KEY1"), is(expected1));
+        assertThat(sqlRegistry.findSql("KEY2"), is(expected2));
+        assertThat(sqlRegistry.findSql("KEY3"), is(expected3));
+    }
+
+    @Test
+    public void unknownKey() {
+        assertThrows(SqlNotFoundException.class, () -> {
+            sqlRegistry.findSql("SQL9999!@#$");
+        });
+    }
+
+    @Test
+    public void updateSingle() {
+        sqlRegistry.updateSql("KEY2", "Modified2");
+        checkFindResult("SQL1", "Modified2", "SQL3");
+    }
+
+    @Test
+    public void updateMulti() {
+        Map<String, String> sqlmap = new HashMap<>();
+        sqlmap.put("KEY1", "Modified1");
+        sqlmap.put("KEY3", "Modified3");
+
+        sqlRegistry.updateSql(sqlmap);
+        checkFindResult("Modified1", "SQL2", "Modified3");
+    }
+
+    @Test
+    public void updateWithNotExistingKey() {
+        assertThrows(SqlUpdateFailureException.class, () -> {
+            sqlRegistry.updateSql("SQL9999!@#$", "Modified2");
+        });
+    }
+}
+```
+```java
+public class EmbeddedDbSqlRegistryTest extends AbstractUpdatableSqlRegistryTest {
+    EmbeddedDatabase db;
+    EmbeddedDbSqlRegistry embeddedDbSqlRegistry;
+
+    @Override
+    protected UpdatableSqlRegistry createUpdatableSqlRegistry() {
+        db = new EmbeddedDatabaseBuilder()
+                .setType(EmbeddedDatabaseType.HSQL)
+                .addScript("/schema.sql")
+                .build();
+
+        embeddedDbSqlRegistry = new EmbeddedDbSqlRegistry();
+        embeddedDbSqlRegistry.setDataSource(db);
+        return embeddedDbSqlRegistry;
+    }
+
+    @AfterEach
+    public void tearDown() {
+        db.shutdown();
+    }
+}
+```
+
+<h4>7.5.3 트랜잭션 적용</h4>
+* 현재 내장형 DB를 이용해서 sql 수정은 정상적으로 잘 되나, 트랜잭션 처리가 되어있지 않다
+* 트랜잭션 적용을 위해 에러 상황을 test 메서드로 추가한다
+```java
+public class EmbeddedDbSqlRegistryTest extends AbstractUpdatableSqlRegistryTest {
+    ...
+    @AfterEach
+    public void tearDown() {
+        db.shutdown();
+    }
+
+    @Test
+    public void transactionalUpdate(){
+        checkFindResult("SQL1", "SQL2", "SQL3");
+
+        Map<String, String> sqlmap = new HashMap<String,String>();
+        sqlmap.put("KEY1", "Modified1");
+        sqlmap.put("KEY9999!@#$", "Modified9999");
+
+        try{
+            sqlRegistry.updateSql(sqlmap);
+            fail();
+        }catch(SqlUpdateFailureException e){}
+
+        checkFindResult("SQL1", "SQL2", "SQL3");
+
+    }
+
+}
+```
+* 트랜잭션 적용을 위해 간단한 TransactionTemplate 을 적용한다, 이 template 은 Bean 으로 따로 등록하지 않고
+내장 DB Registry 에 내부적으로 생성하여 적용한다.
+```java
+public class EmbeddedDbSqlRegistry implements UpdatableSqlRegistry {
+    ...
+    @Override
+    public void updateSql(final Map<String, String> sqlmap) throws SqlUpdateFailureException {
+        transactionTemplate.execute(new TransactionCallbackWithoutResult() {
+            @Override
+            protected void doInTransactionWithoutResult(TransactionStatus status) {
+                for (Map.Entry<String, String> entry : sqlmap.entrySet()) {
+                    updateSql(entry.getKey(), entry.getValue());
+                }
+            }
+        });
+    }
+}
+```
+
+<h3>7.6 스프링 3.1의 DI</h3>
