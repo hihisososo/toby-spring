@@ -1,6 +1,6 @@
-<h2>7장(스프링 핵심 기술의 응용)</h2>
-<h3>7.1 SQL 과 DAO 의 분리</h3>
-<h4>7.1.1 XML 설정을 이용한 분리</h3>
+## 7장(스프링 핵심 기술의 응용)
+### 7.1 SQL 과 DAO 의 분리
+#### 7.1.1 XML 설정을 이용한 분리
 * sql 을 외부에서 주입하도록 변경하여 설정하면 아래와 같다.
 ```java
 public class BeanFactory {
@@ -75,7 +75,7 @@ public class UserDaoJdbc implements UserDao {
 
 
 ```
-<h4>7.1.2 SQL 제공 서비스</h4>
+#### 7.1.2 SQL 제공 서비스
 * DI 를 이용한 sql은 운영 시, 변경할 수도 없고 bean 설정에 SQL 문이 전부 써져있기 떄문에 불편하다
 * 해당 sql 제공 기능을 service 를 이용해 분리하면 아래와 같다.
 ```java
@@ -199,8 +199,8 @@ public class SimpleSqlService implements SqlService{
 
 ```
 
-<h3>7.2 인터페이스의 분리와 자기참조 빈</h3>
-<h4>7.2.1 XML 파일 매핑</h4>
+### 7.2 인터페이스의 분리와 자기참조 빈
+#### 7.2.1 XML 파일 매핑
 * Bean 설정파일 안에 SQL 을 넣어놓고 사용하는 것은 바람직하지 못하다
 * xml 파일을 통해 분리해낼 수 있도록 한다, 객체 <-> XMl 간 매핑을 지원해주는 JAXB 를 사용한다.
 * 아래와 같은 .xsd 파일을 통해 sql 을 저장할 수 있는 xml 스키마를 선언한다
@@ -425,7 +425,7 @@ public class JaxbTest {
     }
 ```
 
-<h4>7.2.2 XML 파일을 이용하는 SQL 서비스</h4>
+#### 7.2.2 XML 파일을 이용하는 SQL 서비스
 * xml 파일을 이용하기 위해 SqlService 및 xml 파일을 아래와 같이 생성한다
 ```java
 package springbook.user.sqlservice;
@@ -486,7 +486,7 @@ public class XmlSqlService implements SqlService {
 </sqlmap>
 ```
 
-<h4>7.2.3 빈의 초기화 작업</h4>
+#### 7.2.3 빈의 초기화 작업
 * 생성자에서 예외가 발생할 수도 있는 복잡한 초기화 작업을 두는 것은 위험함, 별도의 초기 메서드를 구현한다
 * 읽어들일 파일의 위치와 이름이 코드에 고정되어 있다는 점이 유동적이지 않다
 * 해당 부분을 고치면 아래와 같다.
@@ -532,7 +532,7 @@ public SqlService sqlService(){
 ...
 ```
 
-<h4>7.2.4 변화를 위한 준비: 인터페이스 분리</h4>
+#### 7.2.4 변화를 위한 준비: 인터페이스 분리
 * xml 이 아닌 다양한 파일 포맷에서도 작동하게 만들 수 있도록 인터페이스를 분리한다
 * sql 을 읽는 sqlReader, sqlRegistry 인터페이스를 구현하면 아래와 같다.
 ```java
@@ -554,7 +554,7 @@ public interface SqlRegistry {
 
 ```
 
-<h4>7.2.5 자기참조 빈으로 시작하기</h4>
+#### 7.2.5 자기참조 빈으로 시작하기
 * XmlSqlService 에서 이제 SqlRegistry, SqlReader 인터페이스를 DI 받을 수 있도록 수정한다
 * XmlSqlService 는 SqlRegistry, SqlReader 도 구현한 class 로 만든다(자기참조 빈) 이렇게하면
 한 클래스가 마치 빈이 3개 등록된 것처럼 사용할 수 있다.
@@ -640,7 +640,7 @@ public class XmlSqlService implements SqlService, SqlRegistry, SqlReader {
 
 ```
 
-<h4>7.2.6 디폴트 의존관계</h4>
+#### 7.2.6 디폴트 의존관계
 * DI 된 SqlRegistry, SqlReader 를 이용하여 사용하는 기본적인 Service 를 생성해보면 아래와 같다.
 ```java
 public class BaseSqlService implements SqlService {
@@ -754,8 +754,8 @@ public class JaxbXmlSqlReader implements SqlReader {
 ```
 * DefaultSqlService 설정 후 테스트를 돌려보면 성공한다, 일련의 과정을 통해 설정파일 간소화 및 확장 구현이 가능한 설계가 되었다.
 
-<h3>7.3 서비스 추상화 적용</h3>
-<h4>7.3.1 OXM 서비스 추상화</h4>
+### 7.3 서비스 추상화 적용
+#### 7.3.1 OXM 서비스 추상화
 * XML <-> Object 상호 변환 기술을 OXM 이라고 한다.
 * 스프링에서 사용하는 OXM 추상화 기술은 Marshaller, UnMashaller 인터페이스를 포함한다
 * 학습 테스트를 만들어보면 아래와 같다.
@@ -790,7 +790,7 @@ public class OxmTest {
 ```
 * Unmarshaller 인터페이스를 통해 Jaxb 와의 결합이 추상화 되었다
 
-<h4>7.3.2 OXM 서비스 추상화 적용</h4>
+#### 7.3.2 OXM 서비스 추상화 적용
 * OxmSqlService 를 생성해서 적용할 수 있도록 한다, SqlReader 클래스를 OxmSqlService 의 내부 스태틱 클래스로
 선언하여 응집도를 높인다.
 ```java
@@ -890,7 +890,7 @@ public class OxmSqlService implements SqlService {
     }
 ```  
 
-<h4>7.3.3 리소스 추상화</h4>
+#### 7.3.3 리소스 추상화
 * sql 파일을 읽어오는 부분은, 파일이 될 수도 있고, http 등 여러 가지가 존재한다
 * Spring 에서는 이 부분을 추상화하기 위해서 Resource 클래스를 제공한다. 사용하도록 수정하면 아래와 같다.
 ```java
@@ -927,17 +927,17 @@ public class OxmSqlService implements SqlService {
     }
 ```
 
-<h3>7.4 인터페이스 상속을 통한 안전한 기능확장</h3>
+### 7.4 인터페이스 상속을 통한 안전한 기능확장
 * 운영중 sql 이 실시간으로 reload 되어야 할 경우에 대해 구현해본다
 
-<h4>7.4.1 DI와 기능의 확장</h4>
+#### 7.4.1 DI와 기능의 확장
 * 스프링을 통해 DI 를 구현하는 것은 아주 쉬운 일이나, 프로그램 설계 시 DI 를 고려하여
 설계하는 것은 많은 경험, 공부가 필요하다
 * DI 가 필요한 이유 또 하나로는 클래스 상속과는 다르게 인터페이스를 통해 같은 클래스라도
 클라이언트에 따라 여러가지 인터페이스를 제공해 줄 수 있기 떄문이다. 클래스를 통해 구현하면
 이와 같은 제공은 불가능하다.
  
-<h4>7.4.2 인터페이스 상속</h4>
+#### 7.4.2 인터페이스 상속
 * 업데이트 가능한 기능을 제공하기 위해 기존 SqlRegistry 를 상속해서 인터페이스를 구현한다.
 ```java
 public interface UpdatableSqlRegistry extends SqlRegistry {
@@ -962,8 +962,8 @@ public class SqlAdminService implements AdminEventListener{
 }
 ```
 
-<h3>7.5 DI를 이용해 다양한 구현 방법 적용하기</h3>
-<h4>7.5.1 ConcurrentHashMap을 이용한 수정 가능 SQL 레지스트리</h4>
+### 7.5 DI를 이용해 다양한 구현 방법 적용하기
+#### 7.5.1 ConcurrentHashMap을 이용한 수정 가능 SQL 레지스트리
 * 멀티쓰레드 동기화 관련해서 좋은 성능을 제공하는 ConcurrentHashMap을 이용해서 sqlmap 을 제공해본다
 * 테스트 부터 생성해보면 아래와 같다
 ```java
@@ -1058,7 +1058,7 @@ public class ConcurrentHashMapRegistry implements UpdatableSqlRegistry {
 }
 ```
 
-<h4>7.5.2 내장형 데이터베이스를 이용한 SQL 레지스트리 만들기</h4>
+#### 7.5.2 내장형 데이터베이스를 이용한 SQL 레지스트리 만들기
 * SqlRegistry 를 구현하기 위해 내장형 DB 를 사용할 수 도 있다.
 * 스프링에서 제공하는 내장형 DB 를 테스트 해보기 위해 우선 초기 sql 파일을 만든다.
 ```sql
@@ -1237,7 +1237,7 @@ public class EmbeddedDbSqlRegistryTest extends AbstractUpdatableSqlRegistryTest 
 }
 ```
 
-<h4>7.5.3 트랜잭션 적용</h4>
+#### 7.5.3 트랜잭션 적용
 * 현재 내장형 DB를 이용해서 sql 수정은 정상적으로 잘 되나, 트랜잭션 처리가 되어있지 않다
 * 트랜잭션 적용을 위해 에러 상황을 test 메서드로 추가한다
 ```java
@@ -1286,7 +1286,7 @@ public class EmbeddedDbSqlRegistry implements UpdatableSqlRegistry {
 }
 ```
 
-<h3>7.6 스프링 3.1의 DI</h3>
+### 7.6 스프링 3.1의 DI
 * 스프링의 변화에 대비한 설계 때문에, 1.0 과 3.1 은 거의 완벼한 호환성을 자랑한다
 * 자바가 그동안 업데이트 되면서 스프링의 사용방식에도 많은 변화가 있었다. 대표적인 변화는 아래 두개와 같다
   1. 애노테이션의 메타정보 활용 

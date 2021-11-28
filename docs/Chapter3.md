@@ -1,6 +1,6 @@
-<h2>3장(템플릿)</h2>
-<h3>다시 보는 초난감 DAO</h3>
-<h4>3.1.1 예외처리 기능을 갖춘 DAO</h4>
+## 3장(템플릿)
+### 다시 보는 초난감 DAO
+#### 3.1.1 예외처리 기능을 갖춘 DAO
 * UserDao 소스 코드를 다시 보면, Connection 및 PreparedStatement 를 사용 후 
 Exception 발생 시, 리소스 반환이 되지 않음
   
@@ -63,12 +63,12 @@ Exception 발생 시, 리소스 반환이 되지 않음
     }
 }
 ```
-<h3>3.2 변하는 것과 변하지 않는 것</h3>
-<h4>3.2.1 JDBC try/catch/finally 코드의 문제점</h4>
+### 3.2 변하는 것과 변하지 않는 것
+#### 3.2.1 JDBC try/catch/finally 코드의 문제점
 * 소스 로직상에는 문제가 없지만, 리소스 반환 구문이 모든 코드에 중복되는 문제가 있음
 * 중복되어 나오는 이와같은 로직은 폭탄이 될 가능성이 있음
 
-<h4>3.2.2 분리와 재사용을 위핸 디자인 패턴 적용</h4>
+#### 3.2.2 분리와 재사용을 위핸 디자인 패턴 적용
 * Conenction 사용/반납 코드가 현재 중복되어 나타나고 있으므로 템플릿 메소드 패턴(상속)을 이용해 수정하면 아래와 같다.
 ```java
 public class UserDaoDeleteAll extends UserDao {
@@ -144,7 +144,7 @@ public void deleteAll() throws SQLException {
     }
 ```
 
-<h3>3.3 JDBC 전략 패턴의 최적화</h3>
+### 3.3 JDBC 전략 패턴의 최적화
 * 위에서 적용한 전략 패턴을 add() 메소드에 적용하면 아래와 같다.
 ```java
 ...
@@ -176,7 +176,7 @@ public void add(User user) throws SQLException {
         jdbcContextWithStatementStrategy(st);
     }
 ```
-<h4>3.3.2 전략과 클라이언트의 동거</h4>
+#### 3.3.2 전략과 클라이언트의 동거
 * 위와 같이 코드 개선되었지만, 매 전략마다 새로운 클래스를 만들어야 한다는 점,
 User 와 같은 부가정보가 필요할 경우 생성자를 만들어 받을 수 있도록 해야 한다는 점이 있다.
   
@@ -226,8 +226,8 @@ public void deleteAll() throws SQLException {
     }
 ```
 
-<h3>3.4 컨텍스트와 DI</h3>
-<h4>3.4.1 JdbcContext의 분리</h4>
+### 3.4 컨텍스트와 DI
+#### 3.4.1 JdbcContext의 분리
 * 전략 패턴의 구조로 보자면, UserDao 의 메소드가 클라이언트이고, 익명 내부 클래스가 전략, jdbcContextWithStatementStrategy 는 컨텍스트이다.  
 * 컨텍스트 메소드는 변하지 않으므로, 모든 클래스에서 사용할 수 있도록 
 UserDao 에서 독립시켜본다.
@@ -333,7 +333,7 @@ public class TestDaoFactory {
     }
 }
 ```
-<h4>3.4.2 JdbcContext 의 특별한 DI</h4>
+#### 3.4.2 JdbcContext 의 특별한 DI
 * JdbcContext 를 DI 시킬 때, 인터페이스를 사용하지 않은 이유는 무엇일까?
 * 보통은 인터페이스를 통해 DI 시키는 것이 일반적이나, 꼭 그럴 필요는 없음
   
@@ -341,13 +341,13 @@ public class TestDaoFactory {
   1. JdbcContext 는 싱글톤인 일종의 서비스 오브젝트로써 여러 Dao 에 Jdbc 컨텍스트 메소드를 제공하는데 의의가 있다.
   2. JdbcContexnt 는 DataSurce 를 스프링으로부터 DI 받아야 하기 떄문이다.
   
-<h3>3.5 템플릿과 콜백</h3>
+### 3.5 템플릿과 콜백
 * UserDao, StatementStrategy, JdbcContext 를 이용하여 전략 패턴을 이제까지 구현하였다.
 해당 부분은 복잡하지 않으나 일정 작업 흐름 + 자주 변경하여 사용하는 일부분에 적합한 구조임
   
 * 전략패턴 + 익명 내부 클래스를 사용한 구조를 템플릿/콜백 패턴이라고 한다.
 
-<h4>3.5.1 템플릿/콜백의 동작원리</h4>
+#### 3.5.1 템플릿/콜백의 동작원리
 * 템플릿 : 고정된 작업 흐름을 가진 코드(재사용)
 * 콜백 : 템플릿 안에서 호출되는 것을 목적으로 만들어진 오브젝트
 * 콜백은, 단일 메소드 인터페이스를 보통 사용한다.(특정 기능을 위해 한번 호출되는 경우가 일반적이기 떄문)
@@ -357,7 +357,7 @@ public class TestDaoFactory {
 * 일반적인 DI 라면, 콜백 오브젝트를 템플릿 클래스에서 DI 받아서 사용하겠지만, 이와 다르게 템플릿/콜백
 패턴은 메소드 호출 시, 콜백 오브젝트를 생성하여 넘겨준다는 것이 특징이다.
   
-<h4>3.5.2 편리한 콜백의 재활용</h4>
+#### 3.5.2 편리한 콜백의 재활용
 * 템플릿/콜백 방식은 코드를 반복하여 사용하지 않고 변하는 부분만 간결하게 사용할 수 있어 이점이 있다.
 * 하지만, 매번 익명 클래스를 생성하는 코드가 보기에 불편하므로, 수정하면 아래와 같다.
 
@@ -384,7 +384,7 @@ public class UserDao {
     ...
 ```
 
-<h4>3.5.3 템플릿/콜백의 응용</h4>
+#### 3.5.3 템플릿/콜백의 응용
 * 자주 반복되는 코드가 있다면, 메소드 추출 -> 인터페이스를 통한 DI -> 템플릿/콜백 패턴을 적용해본다.
 * 파일을 열어서 모든 라인의 숫자를 더한 합을 돌려주는 간단한 템플릿/콜백 예를 만들어보면 아래와 같다.
 ```java
@@ -596,7 +596,7 @@ public class Calculator {
             ...
 ```
 
-<h4>3.6 스프링의 JdbcTemplate</h4>
+#### 3.6 스프링의 JdbcTemplate
 * 위에서 만든 템플릿/콜백을 스프링에서 JdbcTemplate 로 제공하고 있다.
 * UserDao 에서 스프링에서 제공하는 JdbcTemplate 를 사용하도록 하려면 아래와 같이 변경한다.
 ```java
@@ -611,7 +611,7 @@ public class UserDao {
     ...
 ```
 
-<h4>3.6.1 update()</h4>
+#### 3.6.1 update()
 * deleteAll() 메소드부터 우선적으로 적용하면 아래와 같다.
 ```java
     public void deleteAll() throws SQLException {
@@ -624,7 +624,7 @@ public class UserDao {
         this.jdbcTemplate.update("insert into users (id,name,password) values(?,?,?)", user.getId(), user.getName(), user.getPassword());
     }
 ```
-<h4>3.6.2 queryForInt()</h4>
+#### 3.6.2 queryForInt()
 * getCount() 메소드에 jdbcTemplate 를 적용 시, 결과 같을 가져오는 콜백 이 있다.
 * ResultSetExtractor 라고 하며 ResultSet 을 전달받는 콜백이다. 해당 콜백을 구현하면 아래와 같다.
 
@@ -652,7 +652,7 @@ public int getCount() throws SQLException {
     }
 ```
 
-<h4>3.6.3 queryForObject()</h4>
+#### 3.6.3 queryForObject()
 * Integer 값 외에도 queryForObject 를 통해 다양한 타입의 결과 객체를 가져올 수 있다.
 * queryForObject 를 사용해서 get() 메소드를 수정하면 아래와 같다.
 ```java
@@ -670,7 +670,7 @@ public User get(String id) throws SQLException {
     }
 ```
 
-<h4>3.6.4 query()</h4>
+#### 3.6.4 query()
 * rowMapper 를 좀더 사용해볼 목적으로, 사용자 리스트 전체를 가져오는 기능을 만들어본다.
 * 우선 테스트부터 생성해보면 아래와 같다.
 
@@ -733,7 +733,7 @@ public List<User> getAll() {
         ...
 ```
 
-<h4>3.6.5 재사용 가능한 콜백의 분리</h4>
+#### 3.6.5 재사용 가능한 콜백의 분리
 * 현재 코드에서 재사용 가능한 부분을 찾아보면, getAll() 과 get() 의 RowMapper 가 중복되어 나타난다.
 * 이 부분을 독립시켜 나중에 수정사항이 생겼을 때 한곳에서 처리할 수 있도록 하면 아래와 같다.
 ```java
@@ -763,7 +763,7 @@ public class UserDao {
 * DB를 무엇을 쓸지에 대해서는 JdbcTemplate 에 맡기고 신경쓰지 않는다.
 * userMapper 를 독립된 빈으로 만들거나, sql 문장을 외부 리소스에서 불러오도록 하는 개선사항이 있으나 아직은 개선하지 않는다.
 
-<h3>3.7 정리</h3>
+### 3.7 정리
 * 예외 발생 가능성 및 공유 리소스의 반환이 필요한 코드는 try/catch/finally 블록으로 관리한다.
 * 특정 동작이 고정이고, 일부만 바뀐다면 전략 패턴을 사용해서 처리하면 좋다.
 * 단일 전략 메소드를 갖는 전략 패턴이면서, 익명 내부 클래스를 사용해서 매번 전략을 만들고, 컨텍스트 호출과 동시에 전략 DI를 수행하는 방식을
